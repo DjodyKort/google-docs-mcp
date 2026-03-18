@@ -1,3 +1,15 @@
+## Local Development Setup (Claude Code)
+
+If you've cloned this repo and want to register it as an MCP in Claude Code pointing to your local build:
+
+```bash
+npx tsx setup-local-mcp.ts
+```
+
+This builds the project, removes any existing `google-docs-mcp` registration, and re-adds it using your local `dist/index.js`.
+
+---
+
 # Google Docs, Sheets, Drive, Gmail & Calendar MCP Server
 
 ![Demo Animation](assets/google.docs.mcp.1.gif)
