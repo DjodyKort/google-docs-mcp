@@ -2,7 +2,13 @@
 import { google, docs_v1 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { UserError } from 'fastmcp';
-import { TextStyleArgs, ParagraphStyleArgs, hexToRgbColor, NotImplementedError } from './types.js';
+import {
+  TextStyleArgs,
+  ParagraphStyleArgs,
+  TableCellStyleArgs,
+  hexToRgbColor,
+  NotImplementedError,
+} from './types.js';
 import { logger } from './logger.js';
 import { buildTabsFieldMask } from './tools/docs/tabFieldMasks.js';
 
@@ -722,7 +728,7 @@ export function buildDeleteTableRowRequest(
   };
 }
 
-type TableCellStyleArgs = {
+type RawTableCellStyleArgs = {
   backgroundColor?: docs_v1.Schema$RgbColor;
   contentAlignment?: 'CONTENT_ALIGNMENT_UNSPECIFIED' | 'TOP' | 'MIDDLE' | 'BOTTOM';
   rowSpan?: number;
@@ -745,7 +751,7 @@ export function buildTableCellStyleRequest(
   tableStartIndex: number,
   rowIndex: number,
   columnIndex: number,
-  style: TableCellStyleArgs,
+  style: RawTableCellStyleArgs,
   tabId?: string
 ): { request: docs_v1.Schema$Request; fields: string[] } | null {
   const tableCellStyle: Record<string, unknown> = {};
@@ -896,6 +902,92 @@ export function buildPinTableHeaderRowsRequest(
   };
 
   return request as docs_v1.Schema$Request;
+}
+
+// --- Table Cell Style Request Builder (hex-based, used by formatTableCells) ---
+
+export function buildUpdateTableCellStyleRequest(
+  tableStartIndex: number,
+  style: TableCellStyleArgs,
+  cellRange?: { rowIndex: number; columnIndex: number; rowSpan: number; columnSpan: number },
+  tabId?: string
+): { request: docs_v1.Schema$Request; fields: string[] } | null {
+  const tableCellStyle: docs_v1.Schema$TableCellStyle = {};
+  const fieldsToUpdate: string[] = [];
+
+  if (style.backgroundColor !== undefined) {
+    const rgbColor = hexToRgbColor(style.backgroundColor);
+    if (!rgbColor)
+      throw new UserError(`Invalid background hex color: ${style.backgroundColor}`);
+    tableCellStyle.backgroundColor = { color: { rgbColor } };
+    fieldsToUpdate.push('backgroundColor');
+  }
+
+  // Borders
+  const buildBorder = (
+    border: { color?: string; width?: number; dashStyle?: string }
+  ): docs_v1.Schema$TableCellBorder => {
+    const result: docs_v1.Schema$TableCellBorder = {};
+    if (border.color) {
+      const rgb = hexToRgbColor(border.color);
+      if (!rgb) throw new UserError(`Invalid border hex color: ${border.color}`);
+      result.color = { color: { rgbColor: rgb } };
+    }
+    if (border.width !== undefined) {
+      result.width = { magnitude: border.width, unit: 'PT' };
+    }
+    if (border.dashStyle) {
+      result.dashStyle = border.dashStyle;
+    }
+    return result;
+  };
+
+  for (const side of ['borderTop', 'borderBottom', 'borderLeft', 'borderRight'] as const) {
+    if (style[side] !== undefined) {
+      (tableCellStyle as any)[side] = buildBorder(style[side]!);
+      fieldsToUpdate.push(side);
+    }
+  }
+
+  // Padding
+  for (const side of ['paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight'] as const) {
+    if (style[side] !== undefined) {
+      (tableCellStyle as any)[side] = { magnitude: style[side], unit: 'PT' };
+      fieldsToUpdate.push(side);
+    }
+  }
+
+  if (style.contentAlignment !== undefined) {
+    tableCellStyle.contentAlignment = style.contentAlignment;
+    fieldsToUpdate.push('contentAlignment');
+  }
+
+  if (fieldsToUpdate.length === 0) return null;
+
+  const tableStartLocation: any = { index: tableStartIndex };
+  if (tabId) tableStartLocation.tabId = tabId;
+
+  const request: docs_v1.Schema$Request = {
+    updateTableCellStyle: {
+      tableCellStyle,
+      fields: fieldsToUpdate.join(','),
+      ...(cellRange
+        ? {
+            tableRange: {
+              tableCellLocation: {
+                tableStartLocation,
+                rowIndex: cellRange.rowIndex,
+                columnIndex: cellRange.columnIndex,
+              },
+              rowSpan: cellRange.rowSpan,
+              columnSpan: cellRange.columnSpan,
+            },
+          }
+        : { tableStartLocation }),
+    },
+  };
+
+  return { request, fields: fieldsToUpdate };
 }
 
 // --- Specific Feature Helpers ---
