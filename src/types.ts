@@ -209,6 +209,51 @@ export const ApplyParagraphStyleToolParameters = DocumentIdParameter.extend({
 });
 export type ApplyParagraphStyleToolArgs = z.infer<typeof ApplyParagraphStyleToolParameters>;
 
+// --- Table Cell Border Schema ---
+
+export const TableCellBorderSchema = z.object({
+  color: z
+    .string()
+    .refine(validateHexColor, { message: 'Invalid hex color format (e.g., #000000 or #000)' })
+    .optional()
+    .describe('Border color as hex (e.g., "#000000").'),
+  width: z
+    .number()
+    .min(0)
+    .optional()
+    .describe('Border width in points.'),
+  dashStyle: z
+    .enum(['SOLID', 'DOT', 'DASH'])
+    .optional()
+    .describe('Border line style: SOLID, DOT, or DASH.'),
+});
+
+// --- Table Cell Style Schema ---
+
+export const TableCellStyleParameters = z
+  .object({
+    backgroundColor: z
+      .string()
+      .refine(validateHexColor, { message: 'Invalid hex color format' })
+      .optional()
+      .describe('Cell background color as hex (e.g., "#F5F5F5"). Use "transparent" to clear.'),
+    borderTop: TableCellBorderSchema.optional().describe('Top border styling.'),
+    borderBottom: TableCellBorderSchema.optional().describe('Bottom border styling.'),
+    borderLeft: TableCellBorderSchema.optional().describe('Left border styling.'),
+    borderRight: TableCellBorderSchema.optional().describe('Right border styling.'),
+    paddingTop: z.number().min(0).optional().describe('Top padding in points.'),
+    paddingBottom: z.number().min(0).optional().describe('Bottom padding in points.'),
+    paddingLeft: z.number().min(0).optional().describe('Left padding in points.'),
+    paddingRight: z.number().min(0).optional().describe('Right padding in points.'),
+    contentAlignment: z
+      .enum(['TOP', 'MIDDLE', 'BOTTOM'])
+      .optional()
+      .describe('Vertical alignment of cell content.'),
+  })
+  .describe('Styling for table cells.');
+
+export type TableCellStyleArgs = z.infer<typeof TableCellStyleParameters>;
+
 // --- Error Classes ---
 // Use FastMCP's UserError for client-facing issues
 // Define custom errors for internal issues if needed

@@ -11,13 +11,14 @@ import { register as deleteRange } from './deleteRange.js';
 import { register as modifyText } from './modifyText.js';
 import { register as findAndReplace } from './findAndReplace.js';
 import { register as findElement } from './findElement.js';
+import { register as replaceAllText } from './replaceAllText.js';
+import { register as findText } from './findText.js';
 
 // Structure
 import { register as insertTable } from './insertTable.js';
 import { register as insertTableWithData } from './insertTableWithData.js';
 import { register as insertPageBreak } from './insertPageBreak.js';
 import { register as insertSectionBreak } from './insertSectionBreak.js';
-import { register as updateSectionStyle } from './updateSectionStyle.js';
 import { register as insertImage } from './insertImage.js';
 import { register as insertDateChip } from './insertDateChip.js';
 import { register as insertPerson } from './insertPerson.js';
@@ -30,6 +31,42 @@ import { register as findSectionsByHeading } from './findSectionsByHeading.js';
 import { register as replaceTableRowData } from './replaceTableRowData.js';
 import { register as appendTableRows } from './appendTableRows.js';
 import { register as deleteTableRows } from './deleteTableRows.js';
+
+// Table structure operations
+import { register as mergeTableCells } from './mergeTableCells.js';
+import { register as unmergeTableCells } from './unmergeTableCells.js';
+import { register as pinTableHeaderRows } from './pinTableHeaderRows.js';
+import { register as insertTableRow } from './insertTableRow.js';
+import { register as deleteTableRow } from './deleteTableRow.js';
+import { register as insertTableColumn } from './insertTableColumn.js';
+import { register as deleteTableColumn } from './deleteTableColumn.js';
+
+// Headers, footers, footnotes
+import { register as createHeader } from './createHeader.js';
+import { register as createFooter } from './createFooter.js';
+import { register as deleteHeader } from './deleteHeader.js';
+import { register as deleteFooter } from './deleteFooter.js';
+import { register as createFootnote } from './createFootnote.js';
+
+// Images
+import { register as replaceImage } from './replaceImage.js';
+
+// Named ranges
+import {
+  registerCreateNamedRange,
+  registerDeleteNamedRange,
+  registerReplaceNamedRangeContent,
+} from './namedRanges.js';
+
+// Positioned objects
+import { register as deletePositionedObject } from './deletePositionedObject.js';
+
+// Tab management
+import {
+  registerAddTab,
+  registerDeleteTab,
+  registerUpdateTabProperties,
+} from './tabManagement.js';
 
 // Sub-domains
 import { registerCommentTools } from './comments/index.js';
@@ -47,13 +84,14 @@ export function registerDocsTools(server: FastMCP) {
   modifyText(server);
   findAndReplace(server);
   findElement(server);
+  replaceAllText(server);
+  findText(server);
 
   // Structure
   insertTable(server);
   insertTableWithData(server);
   insertPageBreak(server);
   insertSectionBreak(server);
-  updateSectionStyle(server);
   insertImage(server);
   insertDateChip(server);
   insertPerson(server);
@@ -66,6 +104,38 @@ export function registerDocsTools(server: FastMCP) {
   replaceTableRowData(server);
   appendTableRows(server);
   deleteTableRows(server);
+
+  // Table structure operations
+  mergeTableCells(server);
+  unmergeTableCells(server);
+  pinTableHeaderRows(server);
+  insertTableRow(server);
+  deleteTableRow(server);
+  insertTableColumn(server);
+  deleteTableColumn(server);
+
+  // Headers, footers, footnotes
+  createHeader(server);
+  createFooter(server);
+  deleteHeader(server);
+  deleteFooter(server);
+  createFootnote(server);
+
+  // Images
+  replaceImage(server);
+
+  // Named ranges
+  registerCreateNamedRange(server);
+  registerDeleteNamedRange(server);
+  registerReplaceNamedRangeContent(server);
+
+  // Positioned objects
+  deletePositionedObject(server);
+
+  // Tab management
+  registerAddTab(server);
+  registerDeleteTab(server);
+  registerUpdateTabProperties(server);
 
   // Sub-domains
   registerFormattingTools(server);

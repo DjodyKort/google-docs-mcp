@@ -10,4 +10,4 @@ token.json
 *.log
 
 # Environment variables (if you use a .env file later)
-.env* 
+.env* .DS_Store
