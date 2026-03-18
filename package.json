@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "start": "node ./dist/index.js",
+    "auth": "node ./dist/index.js auth",
     "build": "tsc",
     "test": "vitest run",
     "test:live:docs": "vitest run src/tools/docs/cloneTable.live.test.ts",
