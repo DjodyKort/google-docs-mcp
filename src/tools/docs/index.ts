@@ -4,6 +4,7 @@ import type { FastMCP } from 'fastmcp';
 import { register as readGoogleDoc } from './readGoogleDoc.js';
 import { register as listDocumentTabs } from './listDocumentTabs.js';
 import { register as renameTab } from './renameTab.js';
+import { register as addTab } from './addTab.js';
 import { register as appendToGoogleDoc } from './appendToGoogleDoc.js';
 import { register as insertText } from './insertText.js';
 import { register as deleteRange } from './deleteRange.js';
@@ -23,6 +24,7 @@ export function registerDocsTools(server: FastMCP) {
   readGoogleDoc(server);
   listDocumentTabs(server);
   renameTab(server);
+  addTab(server);
   appendToGoogleDoc(server);
   insertText(server);
   deleteRange(server);
