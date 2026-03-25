@@ -6,6 +6,11 @@ If you've cloned this repo and want to register it as an MCP in Claude Code poin
 npx tsx setup-local-mcp.ts
 ```
 
+Auth flow:
+```bash
+npm run auth
+```
+
 This builds the project, removes any existing `google-docs-mcp` registration, and re-adds it using your local `dist/index.js`.
 
 ---
