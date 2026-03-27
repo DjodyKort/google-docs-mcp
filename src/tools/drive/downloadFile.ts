@@ -42,6 +42,15 @@ function isWorkspaceMimeType(mime: string): boolean {
   return mime.startsWith('application/vnd.google-apps.');
 }
 
+function ensureWithinCwd(filePath: string): string {
+  const cwd = path.resolve(process.cwd());
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(cwd + path.sep) && resolved !== cwd) {
+    throw new UserError('File path must be within the working directory.');
+  }
+  return resolved;
+}
+
 const DownloadFileParameters = z.object({
   fileId: z.string().describe('The file ID from a Google Drive URL or previous tool result.'),
   savePath: z
@@ -85,6 +94,7 @@ export function register(server: FastMCP) {
       log.info(`Downloading file ${args.fileId}${args.savePath ? ` to ${args.savePath}` : ''}`);
 
       let resolvedSavePath = args.savePath;
+      if (resolvedSavePath) resolvedSavePath = ensureWithinCwd(resolvedSavePath);
 
       try {
         // 1. Get file metadata
@@ -94,7 +104,7 @@ export function register(server: FastMCP) {
           supportsAllDrives: true,
         });
 
-        const fileName = metadataRes.data.name || 'download';
+        const fileName = path.basename(metadataRes.data.name || 'download');
         const originalMimeType = metadataRes.data.mimeType || 'application/octet-stream';
         const isWorkspace = isWorkspaceMimeType(originalMimeType);
 
@@ -121,6 +131,7 @@ export function register(server: FastMCP) {
             resolvedSavePath = path.join(process.cwd(), fileName);
           }
         }
+        resolvedSavePath = ensureWithinCwd(resolvedSavePath);
 
         // 4. Ensure parent directories exist
         fs.mkdirSync(path.dirname(resolvedSavePath), { recursive: true });

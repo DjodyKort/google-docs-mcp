@@ -24,6 +24,7 @@ export function register(server: FastMCP) {
           })
         )
         .min(1)
+        .max(100)
         .describe('Array of range+values pairs to write in a single batch.'),
       valueInputOption: z
         .enum(['RAW', 'USER_ENTERED'])

@@ -142,7 +142,8 @@ export function register(server: FastMCP) {
           resolvedUrl = await GDocsHelpers.uploadImageToDrive(
             drive,
             args.localImagePath,
-            parentFolderId
+            parentFolderId,
+            false // explicit: needs public URL for Docs API insertion
           );
           log.info(`Image uploaded successfully, URL: ${resolvedUrl}`);
         } else {

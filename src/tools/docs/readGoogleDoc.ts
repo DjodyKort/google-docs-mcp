@@ -154,8 +154,9 @@ export function register(server: FastMCP) {
 
         return fullResponse;
       } catch (error: any) {
-        log.error(`Error reading doc ${args.documentId}: ${error.message || error}`);
-        log.error(`Error details: ${JSON.stringify(error.response?.data || error)}`);
+        log.error(
+          `Error reading doc ${args.documentId}: ${error.message || 'Unknown error'} (code: ${error.code || 'N/A'})`
+        );
         // Handle errors thrown by helpers or API directly
         if (error instanceof UserError) throw error;
         if (error instanceof NotImplementedError) throw error;

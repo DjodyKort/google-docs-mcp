@@ -6,6 +6,8 @@ import { authorize } from './auth.js';
 import { logger } from './logger.js';
 import { requestClients } from './remoteWrapper.js';
 
+const isRemote = process.env.MCP_TRANSPORT === 'httpStream';
+
 let authClient: OAuth2Client | null = null;
 let googleDocs: docs_v1.Docs | null = null;
 let googleDrive: drive_v3.Drive | null = null;
@@ -60,6 +62,9 @@ export async function initializeGoogleClient() {
 export async function getDocsClient() {
   const remote = requestClients.getStore();
   if (remote) return remote.docs;
+  if (isRemote) {
+    throw new UserError('Request context missing. Tool must be called within an MCP request.');
+  }
   const { googleDocs: docs } = await initializeGoogleClient();
   if (!docs) {
     throw new UserError(
@@ -73,6 +78,9 @@ export async function getDocsClient() {
 export async function getDriveClient() {
   const remote = requestClients.getStore();
   if (remote) return remote.drive;
+  if (isRemote) {
+    throw new UserError('Request context missing. Tool must be called within an MCP request.');
+  }
   const { googleDrive: drive } = await initializeGoogleClient();
   if (!drive) {
     throw new UserError(
@@ -86,6 +94,9 @@ export async function getDriveClient() {
 export async function getSheetsClient() {
   const remote = requestClients.getStore();
   if (remote) return remote.sheets;
+  if (isRemote) {
+    throw new UserError('Request context missing. Tool must be called within an MCP request.');
+  }
   const { googleSheets: sheets } = await initializeGoogleClient();
   if (!sheets) {
     throw new UserError(
@@ -99,6 +110,9 @@ export async function getSheetsClient() {
 export async function getAuthClient() {
   const remote = requestClients.getStore();
   if (remote) return remote.auth;
+  if (isRemote) {
+    throw new UserError('Request context missing. Tool must be called within an MCP request.');
+  }
   const { authClient: client } = await initializeGoogleClient();
   if (!client) {
     throw new UserError(
@@ -112,6 +126,9 @@ export async function getAuthClient() {
 export async function getScriptClient() {
   const remote = requestClients.getStore();
   if (remote) return remote.script;
+  if (isRemote) {
+    throw new UserError('Request context missing. Tool must be called within an MCP request.');
+  }
   const { googleScript: script } = await initializeGoogleClient();
   if (!script) {
     throw new UserError(

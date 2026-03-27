@@ -88,7 +88,7 @@ function renderPage(lang: keyof typeof TEXTS, mcpUrl: string, toolCount: number)
     <p class="footer">${t.footer}</p>
   </div>
   <script>
-    var _cfg = ${JSON.stringify(configJson)};
+    var _cfg = ${JSON.stringify(configJson).replace(/</g, '\\u003c')};
     function copyConfig() {
       navigator.clipboard.writeText(_cfg);
       var btn = document.querySelector('.copy-btn');

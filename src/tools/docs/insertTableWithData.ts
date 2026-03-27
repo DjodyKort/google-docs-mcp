@@ -101,8 +101,9 @@ export function register(server: FastMCP) {
       'Ragged rows are padded with empty cells to match the widest row.',
     parameters: DocumentIdParameter.extend({
       data: z
-        .array(z.array(z.string()))
+        .array(z.array(z.string()).max(50))
         .min(1)
+        .max(200)
         .describe(
           'A 2D array of strings representing the table contents. Each inner array is one row. ' +
             'Example: [["Name", "Age"], ["Alice", "30"], ["Bob", "25"]]'

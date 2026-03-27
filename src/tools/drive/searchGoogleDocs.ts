@@ -2,6 +2,7 @@ import type { FastMCP } from 'fastmcp';
 import { UserError } from 'fastmcp';
 import { z } from 'zod';
 import { getDriveClient } from '../../clients.js';
+import { escapeDriveQuery } from '../../driveQueryUtils.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -39,16 +40,16 @@ export function register(server: FastMCP) {
 
         // Add search criteria
         if (args.searchIn === 'name') {
-          queryString += ` and name contains '${args.query}'`;
+          queryString += ` and name contains '${escapeDriveQuery(args.query)}'`;
         } else if (args.searchIn === 'content') {
-          queryString += ` and fullText contains '${args.query}'`;
+          queryString += ` and fullText contains '${escapeDriveQuery(args.query)}'`;
         } else {
-          queryString += ` and (name contains '${args.query}' or fullText contains '${args.query}')`;
+          queryString += ` and (name contains '${escapeDriveQuery(args.query)}' or fullText contains '${escapeDriveQuery(args.query)}')`;
         }
 
         // Add date filter if provided
         if (args.modifiedAfter) {
-          queryString += ` and modifiedTime > '${args.modifiedAfter}'`;
+          queryString += ` and modifiedTime > '${escapeDriveQuery(args.modifiedAfter)}'`;
         }
 
         const response = await drive.files.list({

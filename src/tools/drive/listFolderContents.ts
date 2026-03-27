@@ -2,6 +2,7 @@ import type { FastMCP } from 'fastmcp';
 import { UserError } from 'fastmcp';
 import { z } from 'zod';
 import { getDriveClient } from '../../clients.js';
+import { escapeDriveQuery } from '../../driveQueryUtils.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -36,7 +37,7 @@ export function register(server: FastMCP) {
       log.info(`Listing contents of folder: ${args.folderId}`);
 
       try {
-        let queryString = `'${args.folderId}' in parents and trashed=false`;
+        let queryString = `'${escapeDriveQuery(args.folderId)}' in parents and trashed=false`;
 
         // Filter by type if specified
         if (!args.includeSubfolders && !args.includeFiles) {

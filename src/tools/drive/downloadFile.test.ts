@@ -156,7 +156,7 @@ describe('downloadFile integration', () => {
       const { filesGet, filesExport } = createMockDrive();
 
       const result = await toolExecute(
-        { fileId: 'f1', savePath: '/tmp/report.pdf' },
+        { fileId: 'f1', savePath: './downloads/report.pdf' },
         { log: mockLog }
       );
 
@@ -179,7 +179,7 @@ describe('downloadFile integration', () => {
       expect(filesExport).not.toHaveBeenCalled();
 
       const parsed = JSON.parse(result);
-      expect(parsed.savedTo).toBe('/tmp/report.pdf');
+      expect(parsed.savedTo).toBe(path.resolve('./downloads/report.pdf'));
       expect(parsed.fileName).toBe('report.pdf');
       expect(parsed.sizeBytes).toBe(2048);
       expect(parsed.originalMimeType).toBe('application/pdf');
@@ -194,7 +194,10 @@ describe('downloadFile integration', () => {
         mimeType: 'application/vnd.google-apps.document',
       });
 
-      const result = await toolExecute({ fileId: 'f1', savePath: '/tmp/doc.md' }, { log: mockLog });
+      const result = await toolExecute(
+        { fileId: 'f1', savePath: './downloads/doc.md' },
+        { log: mockLog }
+      );
 
       // files.export called with default markdown MIME
       expect(filesExport).toHaveBeenCalledWith(
@@ -219,7 +222,7 @@ describe('downloadFile integration', () => {
       });
 
       const result = await toolExecute(
-        { fileId: 'f1', savePath: '/tmp/doc.pdf', exportMimeType: 'application/pdf' },
+        { fileId: 'f1', savePath: './downloads/doc.pdf', exportMimeType: 'application/pdf' },
         { log: mockLog }
       );
 
@@ -239,7 +242,7 @@ describe('downloadFile integration', () => {
       createMockDrive({ name: 'data.csv', mimeType: 'text/csv' });
 
       const result = await toolExecute(
-        { fileId: 'f1', savePath: '/tmp/data.csv' },
+        { fileId: 'f1', savePath: './downloads/data.csv' },
         { log: mockLog }
       );
 
@@ -251,7 +254,7 @@ describe('downloadFile integration', () => {
       createMockDrive({ name: 'photo.png', mimeType: 'image/png' });
 
       const result = await toolExecute(
-        { fileId: 'f1', savePath: '/tmp/photo.png' },
+        { fileId: 'f1', savePath: './downloads/photo.png' },
         { log: mockLog }
       );
 
@@ -265,7 +268,7 @@ describe('downloadFile integration', () => {
       createMockDrive({ name: 'big.txt', mimeType: 'text/plain' });
 
       const result = await toolExecute(
-        { fileId: 'f1', savePath: '/tmp/big.txt' },
+        { fileId: 'f1', savePath: './downloads/big.txt' },
         { log: mockLog }
       );
 
@@ -281,7 +284,7 @@ describe('downloadFile integration', () => {
       });
 
       const result = await toolExecute(
-        { fileId: 'f1', savePath: '/tmp/notes.txt' },
+        { fileId: 'f1', savePath: './downloads/notes.txt' },
         { log: mockLog }
       );
 
@@ -339,11 +342,15 @@ describe('downloadFile integration', () => {
     it('should call mkdirSync with exact dirname and recursive: true', async () => {
       createMockDrive();
 
-      await toolExecute({ fileId: 'f1', savePath: '/tmp/sub/dir/file.pdf' }, { log: mockLog });
+      await toolExecute(
+        { fileId: 'f1', savePath: './downloads/sub/dir/file.pdf' },
+        { log: mockLog }
+      );
 
-      expect(mockMkdirSync).toHaveBeenCalledWith(path.dirname('/tmp/sub/dir/file.pdf'), {
-        recursive: true,
-      });
+      expect(mockMkdirSync).toHaveBeenCalledWith(
+        path.dirname(path.resolve('./downloads/sub/dir/file.pdf')),
+        { recursive: true }
+      );
     });
   });
 
@@ -353,14 +360,14 @@ describe('downloadFile integration', () => {
       mockPipeline.mockRejectedValue(new Error('network timeout'));
 
       await expect(
-        toolExecute({ fileId: 'f1', savePath: '/tmp/partial.pdf' }, { log: mockLog })
+        toolExecute({ fileId: 'f1', savePath: './downloads/partial.pdf' }, { log: mockLog })
       ).rejects.toThrow(UserError);
 
       await expect(
-        toolExecute({ fileId: 'f1', savePath: '/tmp/partial.pdf' }, { log: mockLog })
+        toolExecute({ fileId: 'f1', savePath: './downloads/partial.pdf' }, { log: mockLog })
       ).rejects.toThrow(/network timeout/);
 
-      expect(mockUnlinkSync).toHaveBeenCalledWith('/tmp/partial.pdf');
+      expect(mockUnlinkSync).toHaveBeenCalledWith(path.resolve('./downloads/partial.pdf'));
     });
   });
 
@@ -372,11 +379,11 @@ describe('downloadFile integration', () => {
       });
 
       await expect(
-        toolExecute({ fileId: 'f1', savePath: '/tmp/form' }, { log: mockLog })
+        toolExecute({ fileId: 'f1', savePath: './downloads/form' }, { log: mockLog })
       ).rejects.toThrow(UserError);
 
       await expect(
-        toolExecute({ fileId: 'f1', savePath: '/tmp/form' }, { log: mockLog })
+        toolExecute({ fileId: 'f1', savePath: './downloads/form' }, { log: mockLog })
       ).rejects.toThrow(/form/);
     });
   });

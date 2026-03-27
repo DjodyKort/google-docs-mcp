@@ -2,6 +2,7 @@ import type { FastMCP } from 'fastmcp';
 import { UserError } from 'fastmcp';
 import { z } from 'zod';
 import { getDriveClient } from '../../clients.js';
+import { escapeDriveQuery } from '../../driveQueryUtils.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -40,11 +41,11 @@ export function register(server: FastMCP) {
         // Build the query string for Google Drive API
         let queryString = "mimeType='application/vnd.google-apps.document' and trashed=false";
         if (args.query) {
-          queryString += ` and (name contains '${args.query}' or fullText contains '${args.query}')`;
+          queryString += ` and (name contains '${escapeDriveQuery(args.query)}' or fullText contains '${escapeDriveQuery(args.query)}')`;
         }
         if (args.modifiedAfter) {
           const cutoffDate = new Date(args.modifiedAfter).toISOString();
-          queryString += ` and modifiedTime > '${cutoffDate}'`;
+          queryString += ` and modifiedTime > '${escapeDriveQuery(cutoffDate)}'`;
         }
 
         const response = await drive.files.list({

@@ -23,6 +23,7 @@ import { initializeGoogleClient } from './clients.js';
 import { registerAllTools } from './tools/index.js';
 import { wrapServerForRemote } from './remoteWrapper.js';
 import { registerLandingPage } from './landingPage.js';
+import { FirestoreTokenStorage } from './firestoreTokenStorage.js';
 import { logger } from './logger.js';
 
 // --- Auth subcommand ---
@@ -50,12 +51,22 @@ process.on('unhandledRejection', (reason, _promise) => {
 
 const isRemote = process.env.MCP_TRANSPORT === 'httpStream';
 
+if (isRemote) {
+  const missing = ['BASE_URL', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'].filter(
+    (k) => !process.env[k]
+  );
+  if (missing.length > 0) {
+    logger.error(`FATAL: Missing required env vars for httpStream mode: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
+
 const server = new FastMCP({
   name: 'Ultimate Google Docs & Sheets MCP Server',
   version: '1.0.0',
   ...(isRemote && {
     auth: new GoogleProvider({
-      allowedRedirectUriPatterns: ['http://localhost:*', 'https://*', 'cursor://*'],
+      allowedRedirectUriPatterns: ['http://localhost:*', `${process.env.BASE_URL}/*`, 'cursor://*'],
       baseUrl: process.env.BASE_URL!,
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
@@ -67,6 +78,13 @@ const server = new FastMCP({
         'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/script.external_request',
       ],
+      ...(process.env.JWT_SIGNING_KEY && { jwtSigningKey: process.env.JWT_SIGNING_KEY }),
+      ...(process.env.REFRESH_TOKEN_TTL && {
+        refreshTokenTtl: parseInt(process.env.REFRESH_TOKEN_TTL),
+      }),
+      ...(process.env.TOKEN_STORE === 'firestore' && {
+        tokenStorage: new FirestoreTokenStorage(process.env.GCLOUD_PROJECT),
+      }),
     }),
   }),
 });

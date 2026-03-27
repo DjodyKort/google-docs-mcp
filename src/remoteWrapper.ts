@@ -1,9 +1,14 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { createHash } from 'node:crypto';
 import { getAuthSession, requireAuth, UserError } from 'fastmcp';
 import type { FastMCP } from 'fastmcp';
 import { google, docs_v1, drive_v3, sheets_v4, script_v1 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { logger } from './logger.js';
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 export interface RequestClients {
   auth: OAuth2Client;
@@ -18,19 +23,24 @@ export const requestClients = new AsyncLocalStorage<RequestClients>();
 const allowedDomains = (process.env.ALLOWED_DOMAINS || '').split(',').filter(Boolean);
 const domainCache = new Map<string, boolean>();
 
-async function checkDomain(accessToken: string): Promise<boolean> {
+async function checkDomain(tokenHash: string, accessToken: string): Promise<boolean> {
   if (allowedDomains.length === 0) return true;
-  const cached = domainCache.get(accessToken);
+  const cached = domainCache.get(tokenHash);
   if (cached !== undefined) return cached;
 
-  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const { hd } = await res.json();
-  const allowed = allowedDomains.includes(hd);
-  domainCache.set(accessToken, allowed);
-  setTimeout(() => domainCache.delete(accessToken), 3_600_000);
-  return allowed;
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return false;
+    const { hd } = await res.json();
+    const allowed = hd ? allowedDomains.includes(hd) : false;
+    domainCache.set(tokenHash, allowed);
+    setTimeout(() => domainCache.delete(tokenHash), 3_600_000);
+    return allowed;
+  } catch {
+    return false;
+  }
 }
 
 function createClients(accessToken: string): RequestClients {
@@ -47,12 +57,16 @@ function createClients(accessToken: string): RequestClients {
 
 type AddToolArg = Parameters<FastMCP['addTool']>[0];
 
+const wrappedServers = new WeakSet<FastMCP>();
+
 /**
  * Wraps server.addTool() so that in remote (httpStream) mode every tool
  * automatically gets: auth enforcement, domain restriction, and per-request
  * Google API clients via AsyncLocalStorage. Zero changes to tool files.
  */
 export function wrapServerForRemote(server: FastMCP): void {
+  if (wrappedServers.has(server)) return;
+  wrappedServers.add(server);
   const previousAddTool = server.addTool.bind(server);
 
   (server as unknown as { addTool: (tool: AddToolArg) => void }).addTool = (
@@ -61,11 +75,14 @@ export function wrapServerForRemote(server: FastMCP): void {
     const originalExecute = toolDef.execute;
     previousAddTool({
       ...toolDef,
-      canAccess: requireAuth,
+      canAccess: toolDef.canAccess
+        ? (auth: any) => requireAuth(auth) && (toolDef.canAccess as Function)(auth)
+        : requireAuth,
       execute: async (args: any, context: any) => {
         const { accessToken } = getAuthSession(context.session);
 
-        if (!(await checkDomain(accessToken))) {
+        const tokenHash = hashToken(accessToken);
+        if (!(await checkDomain(tokenHash, accessToken))) {
           throw new UserError('Your Google account domain is not allowed on this server.');
         }
 

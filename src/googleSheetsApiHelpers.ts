@@ -260,11 +260,11 @@ export async function addSheet(
  * Returns {sheetName, a1Range} where a1Range is just the cell part (e.g., "A1:B2")
  */
 export function parseRange(range: string): { sheetName: string | null; a1Range: string } {
-  if (range.includes('!')) {
-    const parts = range.split('!');
+  const idx = range.indexOf('!');
+  if (idx !== -1) {
     return {
-      sheetName: parts[0].replace(/^'|'$/g, ''), // Remove quotes if present
-      a1Range: parts[1],
+      sheetName: range.slice(0, idx).replace(/^'|'$/g, ''),
+      a1Range: range.slice(idx + 1),
     };
   }
   return {

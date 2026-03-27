@@ -109,8 +109,9 @@ export const TextStyleParameters = z
     linkUrl: z
       .string()
       .url()
+      .refine((url) => /^https?:\/\//i.test(url), { message: 'Only http/https URLs are allowed.' })
       .optional()
-      .describe('Make the text a hyperlink pointing to this URL.'),
+      .describe('Make the text a hyperlink pointing to this URL (http or https only).'),
     // clearDirectFormatting: z.boolean().optional().describe('If true, attempts to clear all direct text formatting within the range before applying new styles.') // Harder to implement perfectly
   })
   .describe('Parameters for character-level text formatting.');

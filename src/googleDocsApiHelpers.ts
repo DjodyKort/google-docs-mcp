@@ -36,8 +36,7 @@ export async function executeBatchUpdate(
     return response.data;
   } catch (error: any) {
     logger.error(
-      `Google API batchUpdate Error for doc ${documentId}:`,
-      error.response?.data || error.message
+      `Google API batchUpdate Error for doc ${documentId}: ${error.message || 'Unknown error'}`
     );
     // Translate common API errors to UserErrors
     if (error.code === 400 && error.message.includes('Invalid requests')) {
@@ -935,13 +934,19 @@ export async function uploadImageToDrive(
   drive: any, // drive_v3.Drive type
   localFilePath: string,
   parentFolderId?: string,
-  skipPublicSharing: boolean = false
+  skipPublicSharing: boolean = true
 ): Promise<string> {
   const fs = await import('fs');
   const path = await import('path');
 
   if (!fs.existsSync(localFilePath)) {
     throw new UserError(`Image file not found: ${localFilePath}`);
+  }
+
+  const resolvedPath = path.resolve(localFilePath);
+  const cwd = path.resolve(process.cwd());
+  if (!resolvedPath.startsWith(cwd + path.sep) && resolvedPath !== cwd) {
+    throw new UserError('Image file path must be within the working directory.');
   }
 
   const fileName = path.basename(localFilePath);

@@ -12,7 +12,11 @@ export function register(server: FastMCP) {
     description:
       "Replaces the entire document body with content parsed from markdown. Supports headings, bold, italic, strikethrough, links, and bullet/numbered lists. Use readDocument with format='markdown' first to get the current content, edit it, then call this tool to apply changes.",
     parameters: DocumentIdParameter.extend({
-      markdown: z.string().min(1).describe('The markdown content to apply to the document.'),
+      markdown: z
+        .string()
+        .min(1)
+        .max(500000)
+        .describe('The markdown content to apply to the document.'),
       preserveTitle: z
         .boolean()
         .optional()
