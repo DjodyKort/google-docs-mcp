@@ -174,6 +174,8 @@ Tools across Google Docs, Sheets, and Drive:
 | `copyFile`                   | Duplicate a file                            |
 | `renameFile`                 | Rename a file                               |
 | `deleteFile`                 | Move to trash or permanently delete         |
+| `listDriveFiles`             | List any file type in Drive with filters    |
+| `searchDriveFiles`           | Search all Drive files by name or content   |
 | `downloadFile`               | Download a file's content                   |
 
 ---
@@ -268,6 +270,30 @@ gcloud run deploy google-docs-mcp \
 - `ALLOWED_DOMAINS` restricts access to specific Google Workspace domains
 - Access tokens refresh automatically; inactive sessions expire after 30 days
 - Users can revoke access at any time via [Google Account permissions](https://myaccount.google.com/permissions)
+
+### Updating Your Deployment
+
+Merging changes to `main` does **not** automatically update your Cloud Run service. Each deployment is independent — you need to redeploy manually when you want new features or fixes.
+
+**To update:**
+
+1. Pull the latest code:
+   ```bash
+   git pull origin main
+   ```
+
+2. Redeploy to Cloud Run:
+   ```bash
+   gcloud run deploy your-service-name --source . --region your-region
+   ```
+   Your existing environment variables are preserved — no need to pass `--set-env-vars` again.
+
+**When to redeploy:**
+- **Bug fixes and security patches** — redeploy as soon as possible
+- **New features** — redeploy at your convenience
+- **Breaking changes** — check the release notes before redeploying
+
+You can check your current version against the latest release on the [releases page](https://github.com/a-bonus/google-docs-mcp/releases).
 
 ---
 

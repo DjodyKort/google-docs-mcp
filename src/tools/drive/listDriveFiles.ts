@@ -61,7 +61,9 @@ export function register(server: FastMCP) {
         .enum(['asc', 'desc'])
         .optional()
         .default('desc')
-        .describe('Sort direction: "asc" for oldest/smallest first, "desc" for newest/largest first.'),
+        .describe(
+          'Sort direction: "asc" for oldest/smallest first, "desc" for newest/largest first.'
+        ),
       ownedByMe: z
         .boolean()
         .optional()
@@ -119,8 +121,7 @@ export function register(server: FastMCP) {
         }
 
         const queryString = conditions.join(' and ');
-        const orderByParam =
-          args.sortDirection === 'desc' ? `${args.orderBy} desc` : args.orderBy;
+        const orderByParam = args.sortDirection === 'desc' ? `${args.orderBy} desc` : args.orderBy;
 
         const response = await drive.files.list({
           q: queryString,

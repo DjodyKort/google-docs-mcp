@@ -27,10 +27,7 @@ export function register(server: FastMCP) {
       'presentations, folders, and any other Drive file. Supports filtering by MIME type, ' +
       'scoping to a specific folder subtree, controllable sort order, and pagination via pageToken.',
     parameters: z.object({
-      query: z
-        .string()
-        .min(1)
-        .describe('Search term to find in file names or content.'),
+      query: z.string().min(1).describe('Search term to find in file names or content.'),
       searchIn: z
         .enum(['name', 'content', 'both'])
         .optional()
@@ -128,8 +125,7 @@ export function register(server: FastMCP) {
         }
 
         const queryString = conditions.join(' and ');
-        const orderByParam =
-          args.sortDirection === 'desc' ? `${args.orderBy} desc` : args.orderBy;
+        const orderByParam = args.sortDirection === 'desc' ? `${args.orderBy} desc` : args.orderBy;
 
         const response = await drive.files.list({
           q: queryString,
