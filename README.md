@@ -278,6 +278,7 @@ Merging changes to `main` does **not** automatically update your Cloud Run servi
 **To update:**
 
 1. Pull the latest code:
+
    ```bash
    git pull origin main
    ```
@@ -289,6 +290,7 @@ Merging changes to `main` does **not** automatically update your Cloud Run servi
    Your existing environment variables are preserved — no need to pass `--set-env-vars` again.
 
 **When to redeploy:**
+
 - **Bug fixes and security patches** — redeploy as soon as possible
 - **New features** — redeploy at your convenience
 - **Breaking changes** — check the release notes before redeploying
