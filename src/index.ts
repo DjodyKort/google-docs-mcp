@@ -98,10 +98,7 @@ if (oauthProxy) {
   // Google always returns expiresIn=3600, so our 30-day config is
   // never reached. Zero it out so the config fallback is used.
   const origIssue = (oauthProxy as any).issueSwappedTokens.bind(oauthProxy);
-  (oauthProxy as any).issueSwappedTokens = async function (
-    clientId: string,
-    upstreamTokens: any,
-  ) {
+  (oauthProxy as any).issueSwappedTokens = async function (clientId: string, upstreamTokens: any) {
     if (this.config.accessTokenTtl) {
       return origIssue(clientId, { ...upstreamTokens, expiresIn: 0 });
     }

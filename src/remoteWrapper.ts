@@ -33,10 +33,7 @@ function checkDomain(idToken?: string): boolean {
 }
 
 function createClients(accessToken: string, refreshToken?: string): RequestClients {
-  const auth = new OAuth2Client(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-  );
+  const auth = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
   auth.setCredentials({
     access_token: accessToken,
     refresh_token: refreshToken,
