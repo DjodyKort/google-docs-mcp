@@ -3,7 +3,7 @@ import type { FastMCP } from 'fastmcp';
 const TEXTS = {
   en: {
     title: 'Google Docs MCP Server',
-    subtitle: 'Model Context Protocol server for Google Docs, Sheets &amp; Drive',
+    subtitle: 'Model Context Protocol server for Google Docs, Sheets, Drive, Gmail &amp; Calendar',
     setup: 'Setup',
     step1: 'Copy the configuration below',
     step2: 'Open <strong>Cursor Settings → Tools &amp; MCP → Add new MCP server</strong>',
@@ -18,7 +18,7 @@ const TEXTS = {
   },
   cs: {
     title: 'Google Docs MCP Server',
-    subtitle: 'Model Context Protocol server pro Google Docs, Sheets &amp; Drive',
+    subtitle: 'Model Context Protocol server pro Google Docs, Sheets, Drive, Gmail &amp; Calendar',
     setup: 'Nastavení',
     step1: 'Zkopírujte konfiguraci níže',
     step2: 'Otevřete <strong>Cursor Settings → Tools &amp; MCP → Add new MCP server</strong>',

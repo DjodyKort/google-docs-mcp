@@ -1,5 +1,5 @@
 // src/clients.ts
-import { google, docs_v1, drive_v3, sheets_v4, script_v1 } from 'googleapis';
+import { google, docs_v1, drive_v3, sheets_v4, script_v1, gmail_v1, calendar_v3 } from 'googleapis';
 import { UserError } from 'fastmcp';
 import { OAuth2Client } from 'google-auth-library';
 import { authorize } from './auth.js';
@@ -13,11 +13,21 @@ let googleDocs: docs_v1.Docs | null = null;
 let googleDrive: drive_v3.Drive | null = null;
 let googleSheets: sheets_v4.Sheets | null = null;
 let googleScript: script_v1.Script | null = null;
+let googleGmail: gmail_v1.Gmail | null = null;
+let googleCalendar: calendar_v3.Calendar | null = null;
 
 // --- Initialization ---
 export async function initializeGoogleClient() {
   if (googleDocs && googleDrive && googleSheets)
-    return { authClient, googleDocs, googleDrive, googleSheets, googleScript };
+    return {
+      authClient,
+      googleDocs,
+      googleDrive,
+      googleSheets,
+      googleScript,
+      googleGmail,
+      googleCalendar,
+    };
   if (!authClient) {
     try {
       logger.info('Attempting to authorize Google API client...');
@@ -27,6 +37,8 @@ export async function initializeGoogleClient() {
       googleDrive = google.drive({ version: 'v3', auth: authClient });
       googleSheets = google.sheets({ version: 'v4', auth: authClient });
       googleScript = google.script({ version: 'v1', auth: authClient });
+      googleGmail = google.gmail({ version: 'v1', auth: authClient });
+      googleCalendar = google.calendar({ version: 'v3', auth: authClient });
       logger.info('Google API client authorized successfully.');
     } catch (error) {
       logger.error('FATAL: Failed to initialize Google API client:', error);
@@ -35,6 +47,8 @@ export async function initializeGoogleClient() {
       googleDrive = null;
       googleSheets = null;
       googleScript = null;
+      googleGmail = null;
+      googleCalendar = null;
       throw new Error('Google client initialization failed. Cannot start server tools.');
     }
   }
@@ -50,12 +64,26 @@ export async function initializeGoogleClient() {
   if (authClient && !googleScript) {
     googleScript = google.script({ version: 'v1', auth: authClient });
   }
+  if (authClient && !googleGmail) {
+    googleGmail = google.gmail({ version: 'v1', auth: authClient });
+  }
+  if (authClient && !googleCalendar) {
+    googleCalendar = google.calendar({ version: 'v3', auth: authClient });
+  }
 
   if (!googleDocs || !googleDrive || !googleSheets) {
     throw new Error('Google Docs, Drive, and Sheets clients could not be initialized.');
   }
 
-  return { authClient, googleDocs, googleDrive, googleSheets, googleScript };
+  return {
+    authClient,
+    googleDocs,
+    googleDrive,
+    googleSheets,
+    googleScript,
+    googleGmail,
+    googleCalendar,
+  };
 }
 
 // --- Helper to get Docs client within tools ---
@@ -136,4 +164,36 @@ export async function getScriptClient() {
     );
   }
   return script;
+}
+
+// --- Helper to get Gmail client within tools ---
+export async function getGmailClient() {
+  const remote = requestClients.getStore();
+  if (remote) return remote.gmail;
+  if (isRemote) {
+    throw new UserError('Request context missing. Tool must be called within an MCP request.');
+  }
+  const { googleGmail: gmail } = await initializeGoogleClient();
+  if (!gmail) {
+    throw new UserError(
+      'Gmail client is not initialized. Authentication might have failed during startup or lost connection.'
+    );
+  }
+  return gmail;
+}
+
+// --- Helper to get Calendar client within tools ---
+export async function getCalendarClient() {
+  const remote = requestClients.getStore();
+  if (remote) return remote.calendar;
+  if (isRemote) {
+    throw new UserError('Request context missing. Tool must be called within an MCP request.');
+  }
+  const { googleCalendar: calendar } = await initializeGoogleClient();
+  if (!calendar) {
+    throw new UserError(
+      'Google Calendar client is not initialized. Authentication might have failed during startup or lost connection.'
+    );
+  }
+  return calendar;
 }

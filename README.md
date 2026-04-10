@@ -1,8 +1,8 @@
-# Google Docs, Sheets & Drive MCP Server
+# Google Docs, Sheets, Drive, Gmail & Calendar MCP Server
 
 ![Demo Animation](assets/google.docs.mcp.1.gif)
 
-Connect Claude Desktop, Cursor, or any MCP client to your Google Docs, Google Sheets, and Google Drive.
+Connect Claude Desktop, Cursor, or any MCP client to your Google Docs, Google Sheets, Google Drive, Gmail, and Google Calendar.
 
 ---
 
@@ -12,8 +12,8 @@ Connect Claude Desktop, Cursor, or any MCP client to your Google Docs, Google Sh
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create or select a project
-3. Enable the **Google Docs API**, **Google Sheets API**, and **Google Drive API**
-4. Configure the **OAuth consent screen** (External, add your email as a test user)
+3. Enable the **Google Docs API**, **Google Sheets API**, **Google Drive API**, **Gmail API**, and **Google Calendar API**
+4. Configure the **OAuth consent screen** (External, add your email as a test user, and add the `gmail.modify` and `calendar.events` scopes alongside the Docs/Sheets/Drive scopes)
 5. Create an **OAuth client ID** (Desktop app type)
 6. Copy the **Client ID** and **Client Secret** from the confirmation screen
 
@@ -178,6 +178,27 @@ Tools across Google Docs, Sheets, and Drive:
 | `searchDriveFiles`           | Search all Drive files by name or content   |
 | `downloadFile`               | Download a file's content                   |
 
+### Gmail
+
+| Tool                  | Description                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `listMessages`        | List or search messages using Gmail query syntax (`is:unread`, `from:`, `newer_than:`, etc.)           |
+| `getMessage`          | Fetch a single message with decoded headers, plain-text body, HTML body, and attachment metadata       |
+| `sendEmail`           | Send a plain-text email. Supports cc/bcc and threaded replies via `replyToMessageId`                   |
+| `trashMessage`        | Move a message to Trash (reversible, same as clicking Delete in the Gmail UI)                          |
+| `modifyMessageLabels` | Add or remove labels on a message — use to star, archive (remove `INBOX`), mark read (remove `UNREAD`) |
+| `listLabels`          | List all system and custom labels with their IDs                                                       |
+
+### Google Calendar
+
+| Tool            | Description                                                                                        |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `listEvents`    | List or search events with `q`, `timeMin`, `timeMax`, `maxResults` (defaults to primary calendar)  |
+| `createEvent`   | Create an event with title, start/end, description, location, attendees, optional Google Meet link |
+| `updateEvent`   | PATCH-style update — only the fields you pass change. Use to reschedule, retitle, change attendees |
+| `deleteEvent`   | Permanently delete an event. Optional `sendUpdates` emails cancellations to attendees              |
+| `quickAddEvent` | Natural-language event creation: `"Lunch with Sarah tomorrow 12pm"` — Google parses the rest       |
+
 ---
 
 ## Usage Examples
@@ -210,6 +231,31 @@ Tools across Google Docs, Sheets, and Drive:
 "List my 10 most recent Google Docs"
 "Search for documents containing 'project proposal'"
 "Create a folder called 'Meeting Notes' and move document ABC123 into it"
+```
+
+### Gmail
+
+```
+"Show me my 20 most recent unread emails"
+"Search Gmail for messages from alice@example.com in the last 7 days"
+"Read the full body of message ID 18c3f4a2b1d9"
+"Send an email to bob@example.com with the subject 'Weekly update' and this body..."
+"Reply to message 18c3f4a2b1d9 with 'Thanks, confirmed.'"
+"Star message 18c3f4a2b1d9 and archive it"
+"Move message 18c3f4a2b1d9 to Trash"
+"List all my Gmail labels"
+```
+
+### Google Calendar
+
+```
+"What's on my calendar this week?"
+"Create an event titled 'Project review' tomorrow from 2pm to 3pm Pacific time"
+"Quick add: lunch with Alex Friday 12:30"
+"Reschedule event abc123 to next Monday at 10am"
+"Delete the 'Standup' event tomorrow"
+"List all events on my calendar between April 15 and April 22"
+"Schedule a 30-minute meeting with bob@example.com next Wednesday at 11am with a Google Meet link"
 ```
 
 ### Markdown Workflow
@@ -382,6 +428,11 @@ Without `GOOGLE_MCP_PROFILE`, behavior is unchanged.
 - **Converted documents:** Docs converted from Word may not support all API operations.
 - **Markdown tables/images:** Not yet supported in the markdown-to-Docs conversion.
 - **Deeply nested lists:** Lists with 3+ nesting levels may have formatting quirks.
+- **Gmail hard delete:** `trashMessage` moves messages to Trash (reversible). Permanent deletion requires the broader `https://mail.google.com/` scope and is not exposed in v0.1.
+- **Gmail attachments:** `getMessage` returns attachment metadata but does not download attachment bytes yet.
+- **Gmail HTML email send:** `sendEmail` sends plain-text only. For HTML bodies, paste HTML into the `body` field — it will be delivered as text, not rendered.
+- **Calendar scope:** `calendar.events` permits event CRUD on existing calendars but cannot create or delete entire calendars themselves.
+- **Calendar recurring events:** `updateEvent` and `deleteEvent` modify the entire recurring series unless you target a specific instance ID returned by `listEvents` with `singleEvents=true`.
 
 ## Troubleshooting
 
@@ -389,13 +440,22 @@ Without `GOOGLE_MCP_PROFILE`, behavior is unchanged.
   - Verify `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set in the `env` block of your MCP config.
   - Try running manually: `npx @a-bonus/google-docs-mcp` and check stderr for errors.
 - **Authorization errors:**
-  - Ensure Docs, Sheets, and Drive APIs are enabled in Google Cloud Console.
-  - Confirm your email is listed as a Test User on the OAuth consent screen.
+  - Ensure Docs, Sheets, Drive, Gmail, and Calendar APIs are enabled in Google Cloud Console.
+  - Confirm your email is listed as a Test User on the OAuth consent screen and that all required scopes (Docs, Sheets, Drive, `gmail.modify`, `calendar.events`) are added to the consent screen.
   - Re-authorize: `npx @a-bonus/google-docs-mcp auth`
-  - Delete `~/.config/google-docs-mcp/token.json` and re-authorize if upgrading.
+  - Delete `~/.config/google-docs-mcp/token.json` and re-authorize if upgrading — Gmail and Calendar scopes were added in later versions, so existing tokens must be refreshed.
+  - Remote (Cloud Run) users must sign out and sign back in from their MCP client so Google reissues consent with the new scope list.
 - **Tab errors:**
   - Use `listTabs` to see available tab IDs.
   - Omit `tabId` for single-tab documents.
+- **"Page not found" on claude.ai during OAuth sign-in (remote deployments):**
+  - Symptom: clicking Connect on a custom MCP connector lands on the Claude "Page not found" page instead of the Google sign-in screen.
+  - Cause: Cloud Run cold start. The first request to an idle service times out before the container finishes spinning up, and Claude routes the failed redirect to its 404 page.
+  - Workaround: hard-refresh the page (`Cmd+Shift+R` on macOS, `Ctrl+Shift+R` on Windows/Linux). The second request hits a now-warm instance and the OAuth flow proceeds normally.
+  - Permanent fix: set `--min-instances=1` on your Cloud Run service to keep one instance always warm (`gcloud run services update <service> --region <region> --min-instances=1`). Costs ~$2–3/month for the memory reservation.
+- **Re-authenticated unexpectedly after a redeploy (remote deployments):**
+  - Cause: `JWT_SIGNING_KEY` is auto-generated on each container start, so redeploys invalidate all previously issued sessions.
+  - Fix: set a stable `JWT_SIGNING_KEY` env var on the Cloud Run service so it survives restarts: `gcloud run services update <service> --region <region> --update-env-vars JWT_SIGNING_KEY=$(openssl rand -hex 32)`. Sessions minted after this change will survive future redeploys.
 - **High CPU with multiple MCP sessions:** Some clients call `tools/list` very often. FastMCP otherwise recomputes JSON Schema for every tool on every request, which can pin a CPU core per process. This server precomputes the payload once before stdio starts and replaces the `tools/list` handler with a cached snapshot. If you still see sustained load, capture a few seconds with `sample <pid> 1 10` (macOS) or `node --cpu-prof` and report it.
 
 ---
@@ -411,13 +471,13 @@ Without `GOOGLE_MCP_PROFILE`, behavior is unchanged.
 2. **Create or Select a Project:** Click the project dropdown > "NEW PROJECT". Name it (e.g., "MCP Docs Server") and click "CREATE".
 3. **Enable APIs:**
    - Navigate to "APIs & Services" > "Library"
-   - Search for and enable: **Google Docs API**, **Google Sheets API**, **Google Drive API**
+   - Search for and enable: **Google Docs API**, **Google Sheets API**, **Google Drive API**, **Gmail API**, **Google Calendar API**
 4. **Configure OAuth Consent Screen:**
    - Go to "APIs & Services" > "OAuth consent screen"
    - Choose "External" and click "CREATE"
    - Fill in: App name, User support email, Developer contact email
    - Click "SAVE AND CONTINUE"
-   - Add scopes: `documents`, `spreadsheets`, `drive`
+   - Add scopes: `documents`, `spreadsheets`, `drive`, `gmail.modify`, `calendar.events`
    - Click "SAVE AND CONTINUE"
    - Add your Google email as a Test User
    - Click "SAVE AND CONTINUE"

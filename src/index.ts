@@ -82,6 +82,8 @@ const GOOGLE_API_SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/script.external_request',
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/calendar.events',
 ];
 
 const oauthProxy = isRemote
@@ -92,7 +94,14 @@ const oauthProxy = isRemote
       upstreamClientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       baseUrl: process.env.BASE_URL!,
       scopes: GOOGLE_API_SCOPES,
-      allowedRedirectUriPatterns: ['http://localhost:*', `${process.env.BASE_URL}/*`, 'cursor://*'],
+      allowedRedirectUriPatterns: [
+        'http://localhost:*',
+        `${process.env.BASE_URL}/*`,
+        'cursor://*',
+        'https://claude.ai/*',
+        'https://claude.com/*',
+        'claude://*',
+      ],
       jwtSigningKey: process.env.JWT_SIGNING_KEY,
       encryptionKey: process.env.TOKEN_ENCRYPTION_KEY,
       consentRequired: false,

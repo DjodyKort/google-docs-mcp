@@ -1,6 +1,6 @@
-# 16 Powerful Tasks with the Ultimate Google Docs & Drive MCP Server
+# 22 Powerful Tasks with the Ultimate Google Docs, Drive, Gmail & Calendar MCP Server
 
-This document showcases practical examples of what you can accomplish with the enhanced Google Docs & Drive MCP Server. These examples demonstrate how AI assistants like Claude can perform sophisticated document formatting, structuring, markdown editing, and file management tasks through the MCP interface.
+This document showcases practical examples of what you can accomplish with the enhanced Google Docs, Drive, Gmail & Calendar MCP Server. These examples demonstrate how AI assistants like Claude can perform sophisticated document formatting, structuring, markdown editing, file management, email, and calendar workflows through the MCP interface.
 
 ## Document Formatting & Structure Tasks
 
@@ -256,4 +256,94 @@ Benefits:
 - Version control with Git
 - Batch processing with scripts
 - Familiar markdown syntax for faster editing
+```
+
+## Gmail Workflow Tasks
+
+## 17. Triage Your Unread Inbox
+
+```
+Task: "Summarize my unread emails from the last 24 hours and star the important ones."
+
+Steps:
+1. Call listMessages with q="is:unread newer_than:1d" and maxResults=25
+2. For each returned ID, call getMessage with format="metadata" to get subject and sender
+3. Summarize the group (sender, subject, snippet) in a single table for the user
+4. For messages the user flags as important, call modifyMessageLabels with addLabelIds=["STARRED"]
+5. For noise (newsletters, notifications), call modifyMessageLabels with removeLabelIds=["INBOX", "UNREAD"] to archive and mark read
+```
+
+## 18. Draft and Send a Reply Thread
+
+```
+Task: "Reply to the latest email from my manager confirming I'll attend Friday's meeting."
+
+Steps:
+1. Call listMessages with q="from:manager@company.com" and maxResults=5
+2. Call getMessage with format="full" on the most recent result to read the thread context
+3. Compose a concise reply based on the original
+4. Call sendEmail with:
+   - to: manager email
+   - subject: "Re: [original subject]"
+   - body: the confirmation message
+   - replyToMessageId: the original message ID (ensures it lands in the same Gmail thread)
+5. Confirm delivery by checking the returned threadId matches the original
+```
+
+## 19. Organize Receipts into a Custom Label
+
+```
+Task: "Find all receipts from the last 30 days and move them under a 'Receipts/2026-Q1' label."
+
+Steps:
+1. Call listLabels to find or confirm the ID for the "Receipts/2026-Q1" label (create manually in Gmail first if needed)
+2. Call listMessages with q="subject:(receipt OR invoice) newer_than:30d" and maxResults=100
+3. For each message, call modifyMessageLabels with:
+   - addLabelIds: ["<Receipts/2026-Q1 label ID>"]
+   - removeLabelIds: ["INBOX"] (to archive them from the inbox after tagging)
+4. Report a count of tagged messages and their total size (from the sizeEstimate field)
+5. Optionally call trashMessage on any obvious spam caught by the search
+```
+
+## Google Calendar Workflow Tasks
+
+## 20. Plan Tomorrow from Natural Language
+
+```
+Task: "Block out my afternoon tomorrow for deep work, then add lunch with Sam at noon."
+
+Steps:
+1. Call quickAddEvent with text="Deep work tomorrow 1pm to 5pm" — Google parses the time
+2. Call quickAddEvent with text="Lunch with Sam tomorrow 12pm" — second event
+3. Call listEvents with timeMin set to tomorrow morning and timeMax to tomorrow night to confirm both are on the calendar
+4. Report any conflicts with existing events
+```
+
+## 21. Reschedule a Meeting and Notify Attendees
+
+```
+Task: "Move the 'Design review' meeting from Tuesday 2pm to Thursday 10am and email everyone the change."
+
+Steps:
+1. Call listEvents with q="Design review" and a window covering this week
+2. Identify the event ID from the result
+3. Call updateEvent with:
+   - eventId: <found ID>
+   - start: { dateTime: "2026-04-16T10:00:00-08:00" }
+   - end: { dateTime: "2026-04-16T11:00:00-08:00" }
+   - sendUpdates: "all"
+4. Confirm the response shows the new times
+```
+
+## 22. Triage Calendar Conflicts for the Week
+
+```
+Task: "Show me everything on my calendar this week and flag any double-bookings."
+
+Steps:
+1. Call listEvents with timeMin=Monday 00:00 and timeMax=Sunday 23:59 in the user's timezone
+2. Sort events by start time
+3. Walk the sorted list and detect overlaps (event[i].end > event[i+1].start)
+4. For each overlap, surface the two conflicting events with their summaries and times
+5. Optionally suggest deleteEvent or updateEvent calls to resolve each conflict
 ```

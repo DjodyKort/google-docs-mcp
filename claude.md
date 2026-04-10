@@ -1,6 +1,6 @@
 # Google Docs MCP Server
 
-FastMCP server with 50 tools for Google Docs, Sheets, and Drive.
+FastMCP server with 61 tools for Google Docs, Sheets, Drive, Gmail, and Calendar.
 
 ## Tool Categories
 
@@ -14,6 +14,8 @@ FastMCP server with 50 tools for Google Docs, Sheets, and Drive.
 | Sheets        | 8     | `readSpreadsheet`, `writeSpreadsheet`, `appendSpreadsheetRows`, `clearSpreadsheetRange`, `createSpreadsheet`, `listGoogleSheets`    |
 | Sheets Tables | 6     | `createTable`, `listTables`, `getTable`, `deleteTable`, `updateTableRange`, `appendTableRows`                                       |
 | Drive         | 13    | `listGoogleDocs`, `searchGoogleDocs`, `getDocumentInfo`, `createFolder`, `moveFile`, `copyFile`, `createDocument`                   |
+| Gmail         | 6     | `listMessages`, `getMessage`, `sendEmail`, `trashMessage`, `modifyMessageLabels`, `listLabels`                                      |
+| Calendar      | 5     | `listEvents`, `createEvent`, `updateEvent`, `deleteEvent`, `quickAddEvent`                                                          |
 
 \*Not fully implemented
 
@@ -26,6 +28,11 @@ The server supports Google Shared Drives. All Drive file operations (`files.list
 - **Comment anchoring:** Programmatically created comments appear in "All Comments" but aren't visibly anchored to text in the UI
 - **Resolved status:** May not persist in Google Docs UI (Drive API limitation)
 - **fixListFormatting:** Experimental, may not work reliably
+- **Gmail hard delete:** `trashMessage` only moves to Trash (reversible). Permanent deletion requires the full `https://mail.google.com/` scope, which is not requested.
+- **Gmail attachments:** `getMessage` exposes attachment metadata only — no download of attachment bytes yet.
+- **Gmail send format:** `sendEmail` is plain-text only. HTML bodies are delivered as literal text.
+- **Calendar scope:** `calendar.events` covers event CRUD only. Cannot create or delete entire calendars.
+- **Calendar recurring events:** `updateEvent` and `deleteEvent` operate on the entire series unless you target a specific instance ID from `listEvents` with `singleEvents=true`.
 
 ## Parameter Patterns
 
