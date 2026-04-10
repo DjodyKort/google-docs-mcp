@@ -180,14 +180,21 @@ Tools across Google Docs, Sheets, and Drive:
 
 ### Gmail
 
-| Tool                  | Description                                                                                            |
-| --------------------- | ------------------------------------------------------------------------------------------------------ |
-| `listMessages`        | List or search messages using Gmail query syntax (`is:unread`, `from:`, `newer_than:`, etc.)           |
-| `getMessage`          | Fetch a single message with decoded headers, plain-text body, HTML body, and attachment metadata       |
-| `sendEmail`           | Send a plain-text email. Supports cc/bcc and threaded replies via `replyToMessageId`                   |
-| `trashMessage`        | Move a message to Trash (reversible, same as clicking Delete in the Gmail UI)                          |
-| `modifyMessageLabels` | Add or remove labels on a message — use to star, archive (remove `INBOX`), mark read (remove `UNREAD`) |
-| `listLabels`          | List all system and custom labels with their IDs                                                       |
+| Tool                  | Description                                                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `listMessages`        | List or search messages using Gmail query syntax (`is:unread`, `from:`, `newer_than:`, etc.)                                |
+| `getMessage`          | Fetch a single message with decoded headers, plain-text body, HTML body, and attachment metadata                            |
+| `sendEmail`           | Send a plain-text email. Supports cc/bcc and threaded replies via `replyToMessageId`                                        |
+| `trashMessage`        | Move a message to Trash (reversible, same as clicking Delete in the Gmail UI)                                               |
+| `modifyMessageLabels` | Add or remove labels on a message — use to star, archive (remove `INBOX`), mark read (remove `UNREAD`)                      |
+| `listLabels`          | List all system and custom labels with their IDs                                                                            |
+| `createDraft`         | Compose a draft instead of sending immediately — for compose/review/send workflows                                          |
+| `listDrafts`          | List existing drafts with recipient, subject, and snippet                                                                   |
+| `getDraft`            | Fetch a single draft with full headers and body                                                                             |
+| `updateDraft`         | Replace the contents of an existing draft (full replace, not patch)                                                         |
+| `sendDraft`           | Send an existing draft by ID                                                                                                |
+| `deleteDraft`         | Permanently delete a draft (not moved to Trash — gone)                                                                      |
+| `triageInbox`         | **Composite:** fetch unread messages with content + heuristic flags (newsletter, meeting, action) for one-shot inbox triage |
 
 ### Google Calendar
 
@@ -244,6 +251,9 @@ Tools across Google Docs, Sheets, and Drive:
 "Star message 18c3f4a2b1d9 and archive it"
 "Move message 18c3f4a2b1d9 to Trash"
 "List all my Gmail labels"
+"Draft a reply to that email but don't send it yet — let me review first"
+"Show me my drafts, then send the one to bob@"
+"Triage my unread inbox: tell me which 20 emails need attention and which are noise"
 ```
 
 ### Google Calendar

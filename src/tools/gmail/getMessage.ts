@@ -3,36 +3,7 @@ import { UserError } from 'fastmcp';
 import { z } from 'zod';
 import { gmail_v1 } from 'googleapis';
 import { getGmailClient } from '../../clients.js';
-import { findHeaderValue } from './helpers.js';
-
-function decode(data?: string | null): string {
-  if (!data) return '';
-  return Buffer.from(data, 'base64url').toString('utf-8');
-}
-
-function extractBody(payload?: gmail_v1.Schema$MessagePart): {
-  text: string;
-  html: string;
-} {
-  let text = '';
-  let html = '';
-  if (!payload) return { text, html };
-
-  const walk = (part: gmail_v1.Schema$MessagePart) => {
-    const mime = part.mimeType ?? '';
-    if (mime === 'text/plain' && part.body?.data) {
-      text += decode(part.body.data);
-    } else if (mime === 'text/html' && part.body?.data) {
-      html += decode(part.body.data);
-    }
-    if (part.parts && part.parts.length > 0) {
-      for (const sub of part.parts) walk(sub);
-    }
-  };
-
-  walk(payload);
-  return { text, html };
-}
+import { findHeaderValue, extractMessageBody } from './helpers.js';
 
 function collectAttachments(payload?: gmail_v1.Schema$MessagePart): Array<{
   partId: string | null;
@@ -116,7 +87,7 @@ export function register(server: FastMCP) {
           return JSON.stringify({ ...base, headers: headerSummary }, null, 2);
         }
 
-        const { text, html } = extractBody(msg.payload);
+        const { text, html } = extractMessageBody(msg.payload);
         const attachments = collectAttachments(msg.payload);
 
         return JSON.stringify(
