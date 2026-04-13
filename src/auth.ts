@@ -189,6 +189,18 @@ async function loadSavedCredentialsIfExist(): Promise<OAuth2Client | null> {
     const content = await fs.readFile(tokenPath, 'utf8');
     const credentials = sanitizeStoredTokenCredentials(JSON.parse(content));
     const { client_secret, client_id } = await loadClientSecrets();
+
+    if (credentials.client_id && credentials.client_id !== client_id) {
+      logger.warn(
+        `Saved token was issued for a different OAuth client ` +
+          `(token: ${credentials.client_id.slice(0, 8)}..., ` +
+          `current: ${client_id.slice(0, 8)}...). ` +
+          `Re-run "npm run auth" with the current credentials, ` +
+          `or remove conflicting GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET env vars.`
+      );
+      return null;
+    }
+
     const client = new google.auth.OAuth2(client_id, client_secret);
     client.setCredentials(credentials);
     return client;
