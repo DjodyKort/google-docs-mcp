@@ -7,6 +7,9 @@ import { pipeline } from 'node:stream/promises';
 import { getDriveClient } from '../../clients.js';
 import { requestClients } from '../../remoteWrapper.js';
 import { createDownloadToken } from '../../downloadProxy.js';
+import { EXPORT_MIME_TO_EXTENSION, ensureWithinCwd } from './exportHelpers.js';
+
+export { EXPORT_MIME_TO_EXTENSION };
 
 const isRemote = process.env.MCP_TRANSPORT === 'httpStream';
 
@@ -16,20 +19,6 @@ export const WORKSPACE_EXPORT_DEFAULTS: Record<string, string> = {
   'application/vnd.google-apps.presentation': 'text/plain',
   'application/vnd.google-apps.drawing': 'image/png',
   'application/vnd.google-apps.script': 'application/vnd.google-apps.script+json',
-};
-
-export const EXPORT_MIME_TO_EXTENSION: Record<string, string> = {
-  'text/markdown': '.md',
-  'text/plain': '.txt',
-  'text/csv': '.csv',
-  'text/tab-separated-values': '.tsv',
-  'application/pdf': '.pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
-  'image/png': '.png',
-  'image/jpeg': '.jpg',
-  'application/vnd.google-apps.script+json': '.json',
 };
 
 const MAX_TEXT_EXTRACT_BYTES = 50_000;
