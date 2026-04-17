@@ -206,6 +206,10 @@ Tools across Google Docs, Sheets, and Drive:
 | `listDriveFiles`             | List any file type in Drive with filters    |
 | `searchDriveFiles`           | Search all Drive files by name or content   |
 | `downloadFile`               | Download a file's content                   |
+| `exportDocument`             | Export a Google Doc as pdf/docx/odt/rtf/txt/html/epub/markdown |
+| `exportSpreadsheet`          | Export a Google Sheet as xlsx/ods/pdf/csv/tsv/html |
+| `exportPresentation`         | Export a Google Slides as pptx/odp/pdf/txt  |
+| `exportDrawing`              | Export a Google Drawing as pdf/png/jpg/svg  |
 
 ### Gmail
 
