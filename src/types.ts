@@ -125,8 +125,21 @@ export const ParagraphStyleParameters = z
       .enum(['START', 'END', 'CENTER', 'JUSTIFIED'])
       .optional()
       .describe('Paragraph alignment. START=left for LTR languages, END=right for LTR languages.'),
-    indentStart: z.number().min(0).optional().describe('Left indentation in points.'),
+    indentStart: z
+      .number()
+      .min(0)
+      .optional()
+      .describe(
+        'Left indentation in points (applies to the whole paragraph). 36pt ≈ 0.5 inch (one Tab press in Docs).'
+      ),
     indentEnd: z.number().min(0).optional().describe('Right indentation in points.'),
+    indentFirstLine: z
+      .number()
+      .min(0)
+      .optional()
+      .describe(
+        'First-line indentation in points. Set alongside indentStart with the same value to match the Docs "Increase indent" button; set to 0 with a non-zero indentStart for a hanging indent.'
+      ),
     spaceAbove: z.number().min(0).optional().describe('Space before the paragraph in points.'),
     spaceBelow: z.number().min(0).optional().describe('Space after the paragraph in points.'),
     namedStyleType: z

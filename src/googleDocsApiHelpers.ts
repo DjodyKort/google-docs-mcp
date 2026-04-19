@@ -799,6 +799,12 @@ export function buildUpdateParagraphStyleRequest(
     logger.debug(`Setting right indent to ${style.indentEnd}pt`);
   }
 
+  if (style.indentFirstLine !== undefined) {
+    paragraphStyle.indentFirstLine = { magnitude: style.indentFirstLine, unit: 'PT' };
+    fieldsToUpdate.push('indentFirstLine');
+    logger.debug(`Setting first-line indent to ${style.indentFirstLine}pt`);
+  }
+
   // Process spacing options
   if (style.spaceAbove !== undefined) {
     paragraphStyle.spaceAbove = { magnitude: style.spaceAbove, unit: 'PT' };
