@@ -19,6 +19,11 @@ import { register as exportDocument } from './exportDocument.js';
 import { register as exportSpreadsheet } from './exportSpreadsheet.js';
 import { register as exportPresentation } from './exportPresentation.js';
 import { register as exportDrawing } from './exportDrawing.js';
+import { register as uploadFile } from './uploadFile.js';
+import { register as uploadAndConvert } from './uploadAndConvert.js';
+import { register as convertFile } from './convertFile.js';
+import { register as updateFileContent } from './updateFileContent.js';
+import { register as listSupportedConversions } from './listSupportedConversions.js';
 
 export function registerDriveTools(server: FastMCP) {
   listGoogleDocs(server);
@@ -41,4 +46,9 @@ export function registerDriveTools(server: FastMCP) {
   exportSpreadsheet(server);
   exportPresentation(server);
   exportDrawing(server);
+  uploadFile(server);
+  uploadAndConvert(server);
+  convertFile(server);
+  updateFileContent(server);
+  listSupportedConversions(server);
 }
