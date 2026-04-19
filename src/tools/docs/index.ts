@@ -47,6 +47,7 @@ import { register as createFootnote } from './createFootnote.js';
 
 // Images
 import { register as replaceImage } from './replaceImage.js';
+import { register as downloadImages } from './downloadImages.js';
 
 // Named ranges
 import {
@@ -117,6 +118,7 @@ export function registerDocsTools(server: FastMCP) {
 
   // Images
   replaceImage(server);
+  downloadImages(server);
 
   // Named ranges
   registerCreateNamedRange(server);
