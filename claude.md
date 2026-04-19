@@ -1,6 +1,6 @@
 # Google Docs MCP Server
 
-FastMCP server with 94 tools for Google Docs, Sheets, Drive, Gmail, and Calendar.
+FastMCP server for Google Docs, Sheets, Drive, Gmail, and Calendar.
 
 ## Tool Categories
 
@@ -9,11 +9,11 @@ FastMCP server with 94 tools for Google Docs, Sheets, Drive, Gmail, and Calendar
 | Docs          | 5     | `readGoogleDoc`, `appendToGoogleDoc`, `insertText`, `deleteRange`, `listDocumentTabs`                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Markdown      | 2     | `replaceDocumentWithMarkdown`, `appendMarkdownToGoogleDoc`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Formatting    | 3     | `applyTextStyle`, `applyParagraphStyle`, `formatMatchingText`                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Structure     | 9     | `insertTable`, `insertPageBreak`, `insertSectionBreak`, `updateSectionStyle`, `insertImageFromUrl`, `insertLocalImage`, `editTableCell`_, `findElement`_, `fixListFormatting`\*                                                                                                                                                                                                                                                                                                                        |
+| Structure     | 9     | `insertTable`, `insertPageBreak`, `insertSectionBreak`, `updateSectionStyle`, `insertImageFromUrl`, `insertLocalImage`, `downloadDocumentImages`, `editTableCell`_, `findElement`_, `fixListFormatting`\*                                                                                                                                                                                                                                                                                              |
 | Comments      | 6     | `listComments`, `getComment`, `addComment`, `replyToComment`, `resolveComment`, `deleteComment`                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Sheets        | 31    | `readSpreadsheet`, `writeSpreadsheet`, `appendRows`, `clearRange`, `batchWrite`, `createSpreadsheet`, `listSpreadsheets`, `duplicateSheet`, `copySheetTo`, `renameSheet`, `deleteSheet`, `formatCells`, `setCellBorders`, `autoResizeColumns`, `autoResizeRows`, `setColumnWidths`, `setRowHeights`, `freezeRowsAndColumns`, `groupRows`, `protectRange`, `addConditionalFormatting`, `getConditionalFormatting`, `deleteConditionalFormatting`, `setDropdownValidation`, `insertChart`, `deleteChart` |
 | Sheets Tables | 6     | `createTable`, `listTables`, `getTable`, `deleteTable`, `updateTableRange`, `appendTableRows`                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Drive         | 13    | `listGoogleDocs`, `searchGoogleDocs`, `getDocumentInfo`, `createFolder`, `moveFile`, `copyFile`, `createDocument`                                                                                                                                                                                                                                                                                                                                                                                      |
+| Drive         | 22    | `listGoogleDocs`, `searchGoogleDocs`, `getDocumentInfo`, `createFolder`, `moveFile`, `copyFile`, `createDocument`, `downloadFile`, `exportDocument`, `exportSpreadsheet`, `exportPresentation`, `exportDrawing`, `uploadFile`, `uploadAndConvert`, `convertFile`, `updateFileContent`, `listSupportedConversions`                                                                                                                                                                                       |
 | Gmail         | 13    | `listMessages`, `getMessage`, `sendEmail`, `trashMessage`, `modifyMessageLabels`, `listLabels`, `createDraft`, `listDrafts`, `getDraft`, `updateDraft`, `sendDraft`, `deleteDraft`, `triageInbox`                                                                                                                                                                                                                                                                                                      |
 | Calendar      | 5     | `listEvents`, `createEvent`, `updateEvent`, `deleteEvent`, `quickAddEvent`                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
@@ -22,6 +22,44 @@ FastMCP server with 94 tools for Google Docs, Sheets, Drive, Gmail, and Calendar
 ## Shared Drives Support
 
 The server supports Google Shared Drives. All Drive file operations (`files.list`, `files.get`, `files.create`, `files.update`, `files.copy`, `files.delete`, `permissions.create`) use `supportsAllDrives: true` and `includeItemsFromAllDrives: true` (for list operations), enabling agents to query, create, and update documents in shared drives.
+
+## Upload & Convert Tools
+
+Five tools cover the full "bring a local file into Drive" surface and mirror the Drive web UI flows:
+
+| Tool | Drive API call | UI equivalent |
+| --- | --- | --- |
+| `uploadFile` | `files.create` (matching mimeTypes) | Drag-drop / "Upload file" |
+| `uploadAndConvert` | `files.create` (target = Google type) | Upload with "Convert uploads" ON |
+| `convertFile` | `files.copy` (target = Google type) | Right-click → "Open with" → "Save as Google …" |
+| `updateFileContent` | `files.update` + media | "Manage versions → Upload new version" |
+| `listSupportedConversions` | `about.get(importFormats)` | Discover which source→target pairs Drive accepts |
+
+Notes:
+- Conversion is **not** a separate endpoint. Drive converts server-side when `requestBody.mimeType` is a `application/vnd.google-apps.*` type and `media.mimeType` is the source (e.g. `...spreadsheetml.sheet` for `.xlsx`).
+- `uploadFile`, `uploadAndConvert`, `updateFileContent` read local files and are **stdio-only**; they throw a `UserError` in remote mode.
+- Local paths must be within the current working directory (sandboxed via `ensureWithinCwd`).
+- `convertTo='auto'` infers the target from the source MIME (e.g. xlsx → spreadsheet, pptx → presentation, docx/odt/md → document). Ambiguous sources (.pdf, .png) require an explicit `convertTo`.
+- `convertFile` preserves the original by default; pass `deleteOriginal=true` to remove it after a successful copy.
+
+## Export Tools
+
+Typed wrappers around `drive.files.export` with a validated `format` enum. One tool per Google Workspace document type; formats mirror the **File → Download** menu in each editor.
+
+| Tool                 | Source type        | Formats                                            |
+| -------------------- | ------------------ | -------------------------------------------------- |
+| `exportDocument`     | Google Doc         | `pdf`, `docx`, `odt`, `rtf`, `txt`, `html`, `epub`, `markdown` |
+| `exportSpreadsheet`  | Google Sheet       | `xlsx`, `ods`, `pdf`, `csv`, `tsv`, `html`         |
+| `exportPresentation` | Google Slides      | `pptx`, `odp`, `pdf`, `txt`                        |
+| `exportDrawing`      | Google Drawing     | `pdf`, `png`, `jpg`, `svg`                         |
+
+Notes:
+
+- `html` on Docs/Sheets returns a **zipped** HTML bundle (`.zip`).
+- `csv` and `tsv` on Sheets export only the **first sheet**.
+- `savePath` is optional; defaults to `<fileName>.<ext>` in the current working directory. Paths must be within the cwd.
+- `drive.files.export` rejects files larger than **10 MB** — very large documents surface the API error.
+- For generic (non-Workspace) file download or when you need `text/markdown`-by-default behavior, use `downloadFile`.
 
 ## Known Limitations
 
@@ -42,6 +80,7 @@ The server supports Google Shared Drives. All Drive file operations (`files.list
 - **Alignment:** `START`, `END`, `CENTER`, `JUSTIFIED` (not LEFT/RIGHT)
 - **Indices:** 1-based, ranges are [start, end)
 - **Tabs:** Optional `tabId` parameter (defaults to first tab)
+- **`readDocument` slicing:** `startFrom` is required (`'beginning' | 'end' | 'index'`); `startIndex` is 1-based into the rendered output string and required when `startFrom='index'`; `maxLength` is required when `startFrom='end'`.
 
 ## Markdown Support
 
