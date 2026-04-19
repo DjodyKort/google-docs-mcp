@@ -7,11 +7,58 @@ import * as GDocsHelpers from '../../googleDocsApiHelpers.js';
 import { docsJsonToMarkdown } from '../../markdown-transformer/index.js';
 import { buildTabsFieldMask } from './tabFieldMasks.js';
 
+type StartFrom = 'beginning' | 'end' | 'index';
+
+interface SliceResult {
+  slice: string;
+  start: number;
+  end: number;
+  total: number;
+}
+
+function sliceOutput(
+  content: string,
+  startFrom: StartFrom,
+  startIndex: number | undefined,
+  maxLength: number | undefined
+): SliceResult {
+  const total = content.length;
+  let start: number;
+  if (startFrom === 'beginning') {
+    start = 0;
+  } else if (startFrom === 'end') {
+    start = Math.max(0, total - (maxLength ?? total));
+  } else {
+    // 1-based → 0-based, clamped
+    start = Math.min(total, Math.max(0, (startIndex ?? 1) - 1));
+  }
+  const end = maxLength !== undefined ? Math.min(total, start + maxLength) : total;
+  return { slice: content.substring(start, end), start, end, total };
+}
+
+function wrapTextResponse(result: SliceResult, label = 'Content'): string {
+  const { slice, start, end, total } = result;
+  const rangeDesc =
+    start === 0 && end === total
+      ? `${total} characters`
+      : `chars ${start + 1}..${end} of ${total}`;
+  let out = `${label} (${rangeDesc}):\n---\n${slice}`;
+  if (end < total) {
+    const remaining = total - end;
+    out += `\n\n... [${remaining} more characters. Pass startFrom='index' with startIndex=${end + 1} to continue.]`;
+  }
+  if (start > 0) {
+    out = `[Starting at char ${start + 1}]\n` + out;
+  }
+  return out;
+}
+
 export function register(server: FastMCP) {
   server.addTool({
     name: 'readDocument',
     description:
-      "Reads the content of a Google Document. Returns plain text by default. Use format='markdown' to get formatted content suitable for editing and re-uploading with replaceDocumentWithMarkdown, or format='json' for the raw document structure.",
+      "Reads the content of a Google Document. Returns plain text by default. Use format='markdown' to get formatted content suitable for editing and re-uploading with replaceDocumentWithMarkdown, or format='json' for the raw document structure. " +
+      "startFrom is required — pick 'beginning', 'end', or 'index' to make the slice explicit. Pair with maxLength to paginate long documents.",
     parameters: DocumentIdParameter.extend({
       format: z
         .enum(['text', 'json', 'markdown'])
@@ -20,11 +67,26 @@ export function register(server: FastMCP) {
         .describe(
           "Output format: 'text' (plain text), 'json' (raw API structure, complex), 'markdown' (experimental conversion)."
         ),
-      maxLength: z
+      startFrom: z
+        .enum(['beginning', 'end', 'index'])
+        .describe(
+          "Required. Where to start reading in the rendered output string: 'beginning' (char 1), 'end' (last maxLength chars — maxLength is required), or 'index' (startIndex is required)."
+        ),
+      startIndex: z
         .number()
+        .int()
+        .min(1)
         .optional()
         .describe(
-          'Maximum character limit for text output. If not specified, returns full document content. Use this to limit very large documents.'
+          "1-based character position in the rendered output string (NOT the Google Docs API document index). Required when startFrom='index'."
+        ),
+      maxLength: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe(
+          "Maximum characters to return from the chosen start position. Omit to read until the end. Required when startFrom='end'."
         ),
       tabId: z
         .string()
@@ -32,11 +94,19 @@ export function register(server: FastMCP) {
         .describe(
           'The ID of the specific tab to read. If not specified, reads the first tab (or legacy document.body for documents without tabs).'
         ),
-    }),
+    })
+      .refine((d) => d.startFrom !== 'index' || d.startIndex !== undefined, {
+        message: "startIndex is required when startFrom='index'",
+        path: ['startIndex'],
+      })
+      .refine((d) => d.startFrom !== 'end' || d.maxLength !== undefined, {
+        message: "maxLength is required when startFrom='end' (how many trailing chars to return)",
+        path: ['maxLength'],
+      }),
     execute: async (args, { log }) => {
       const docs = await getDocsClient();
       log.info(
-        `Reading Google Doc: ${args.documentId}, Format: ${args.format}${args.tabId ? `, Tab: ${args.tabId}` : ''}`
+        `Reading Google Doc: ${args.documentId}, Format: ${args.format}, startFrom: ${args.startFrom}${args.tabId ? `, Tab: ${args.tabId}` : ''}`
       );
 
       try {
@@ -79,28 +149,31 @@ export function register(server: FastMCP) {
 
         if (args.format === 'json') {
           const jsonContent = JSON.stringify(contentSource, null, 2);
-          // Apply length limit to JSON if specified
-          if (args.maxLength && jsonContent.length > args.maxLength) {
-            return (
-              jsonContent.substring(0, args.maxLength) +
-              `\n... [JSON truncated: ${jsonContent.length} total chars]`
-            );
-          }
-          return jsonContent;
+          const result = sliceOutput(
+            jsonContent,
+            args.startFrom,
+            args.startIndex,
+            args.maxLength
+          );
+          const { slice, start, end, total } = result;
+          if (start === 0 && end === total) return slice;
+          const continuation =
+            end < total
+              ? `\n... [JSON chars ${start + 1}..${end} of ${total}. Pass startFrom='index' with startIndex=${end + 1} to continue.]`
+              : `\n... [JSON chars ${start + 1}..${end} of ${total}.]`;
+          return slice + continuation;
         }
 
         if (args.format === 'markdown') {
           const markdownContent = docsJsonToMarkdown(contentSource);
-          const totalLength = markdownContent.length;
-          log.info(`Generated markdown: ${totalLength} characters`);
-
-          // Apply length limit to markdown if specified
-          if (args.maxLength && totalLength > args.maxLength) {
-            const truncatedContent = markdownContent.substring(0, args.maxLength);
-            return `${truncatedContent}\n\n... [Markdown truncated to ${args.maxLength} chars of ${totalLength} total. Use maxLength parameter to adjust limit or remove it to get full content.]`;
-          }
-
-          return markdownContent;
+          log.info(`Generated markdown: ${markdownContent.length} characters`);
+          const result = sliceOutput(
+            markdownContent,
+            args.startFrom,
+            args.startIndex,
+            args.maxLength
+          );
+          return wrapTextResponse(result, 'Markdown');
         }
 
         // Default: Text format - extract all text content
@@ -132,25 +205,17 @@ export function register(server: FastMCP) {
 
         if (!textContent.trim()) return 'Document found, but appears empty.';
 
-        const totalLength = textContent.length;
-        log.info(`Document contains ${totalLength} characters across ${elementCount} elements`);
-        log.info(`maxLength parameter: ${args.maxLength || 'not specified'}`);
-
-        // Apply length limit only if specified
-        if (args.maxLength && totalLength > args.maxLength) {
-          const truncatedContent = textContent.substring(0, args.maxLength);
-          log.info(`Truncating content from ${totalLength} to ${args.maxLength} characters`);
-          return `Content (truncated to ${args.maxLength} chars of ${totalLength} total):\n---\n${truncatedContent}\n\n... [Document continues for ${totalLength - args.maxLength} more characters. Use maxLength parameter to adjust limit or remove it to get full content.]`;
-        }
-
-        // Return full content
-        const fullResponse = `Content (${totalLength} characters):\n---\n${textContent}`;
-        const responseLength = fullResponse.length;
         log.info(
-          `Returning full content: ${responseLength} characters in response (${totalLength} content + ${responseLength - totalLength} metadata)`
+          `Document contains ${textContent.length} characters across ${elementCount} elements`
         );
 
-        return fullResponse;
+        const result = sliceOutput(
+          textContent,
+          args.startFrom,
+          args.startIndex,
+          args.maxLength
+        );
+        return wrapTextResponse(result);
       } catch (error: any) {
         log.error(
           `Error reading doc ${args.documentId}: ${error.message || 'Unknown error'} (code: ${error.code || 'N/A'})`
@@ -176,10 +241,13 @@ export function register(server: FastMCP) {
               );
               const textContent = (exportRes as any).data as string;
               if (!textContent?.trim()) return 'Document found, but appears empty.';
-              if (args.maxLength && textContent.length > args.maxLength) {
-                return `Content (truncated to ${args.maxLength} chars of ${textContent.length} total):\n---\n${textContent.substring(0, args.maxLength)}\n\n... [Document continues. Use maxLength parameter to adjust limit or remove it to get full content.]`;
-              }
-              return `Content (${textContent.length} characters):\n---\n${textContent}`;
+              const result = sliceOutput(
+                textContent,
+                args.startFrom,
+                args.startIndex,
+                args.maxLength
+              );
+              return wrapTextResponse(result);
             } catch (exportError: any) {
               log.error(`Drive export fallback also failed: ${exportError.message}`);
             }
