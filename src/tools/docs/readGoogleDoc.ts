@@ -50,7 +50,7 @@ export function register(server: FastMCP) {
         const res = await docs.documents.get({
           documentId: args.documentId,
           includeTabsContent: needsTabsContent,
-          fields: needsTabsContent ? 'title,documentId,body,documentStyle,namedStyles,lists,inlineObjects,positionedObjects,tabs(tabProperties,childTabs,documentTab(body,documentStyle,namedStyles,lists,inlineObjects,positionedObjects))' : fields,
+          fields: needsTabsContent ? 'title,documentId,inlineObjects,positionedObjects,tabs(tabProperties,childTabs,documentTab(body,documentStyle,namedStyles,lists))' : fields,
         });
         log.info(`Fetched doc: ${args.documentId}${args.tabId ? ` (tab: ${args.tabId})` : ''}`);
 
