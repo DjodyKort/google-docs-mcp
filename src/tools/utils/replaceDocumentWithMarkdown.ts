@@ -47,7 +47,7 @@ export function register(server: FastMCP) {
         const doc = await docs.documents.get({
           documentId: args.documentId,
           includeTabsContent: !!args.tabId,
-          fields: args.tabId ? 'tabs' : 'body(content(startIndex,endIndex))',
+          fields: args.tabId ? 'tabs(tabProperties,documentTab(body(content(startIndex,endIndex))))' : 'body(content(startIndex,endIndex))',
         });
 
         // 2. Calculate replacement range
@@ -111,7 +111,7 @@ export function register(server: FastMCP) {
           const docAfterDelete = await docs.documents.get({
             documentId: args.documentId,
             includeTabsContent: !!args.tabId,
-            fields: args.tabId ? 'tabs' : 'body(content(startIndex,endIndex))',
+            fields: args.tabId ? 'tabs(tabProperties,documentTab(body(content(startIndex,endIndex))))' : 'body(content(startIndex,endIndex))',
           });
 
           let survivorContent: any;
