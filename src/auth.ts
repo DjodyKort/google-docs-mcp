@@ -100,45 +100,112 @@ export function createStoredTokenPayload(
 // Client secrets resolution
 // ---------------------------------------------------------------------------
 
-/**
- * Resolves OAuth client ID and secret.
- *
- * Priority:
- *   1. GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET env vars (npx / production)
- *   2. credentials.json in the project root (local dev fallback)
- */
-async function loadClientSecrets(): Promise<{
+type CredentialSource = {
   client_id: string;
   client_secret: string;
-}> {
-  // 1. Environment variables
-  const envId = process.env.GOOGLE_CLIENT_ID;
-  const envSecret = process.env.GOOGLE_CLIENT_SECRET;
-  if (envId && envSecret) {
-    return { client_id: envId, client_secret: envSecret };
-  }
+  origin: 'credentials.json' | 'env';
+};
 
-  // 2. credentials.json fallback
+// Google client IDs share a `<project>-` prefix; show 6 chars after the dash so two
+// IDs from the same project actually look different in logs.
+const shortId = (id: string) => {
+  const dash = id.indexOf('-');
+  if (dash < 0) return `${id.slice(0, 12)}…`;
+  return `${id.slice(0, dash + 7)}…`;
+};
+
+async function readCredentialsJson(): Promise<CredentialSource | null> {
   try {
     const content = await fs.readFile(CREDENTIALS_PATH, 'utf8');
     const keys = JSON.parse(content);
     const key = keys.installed || keys.web;
-    if (!key) {
-      throw new Error('Could not find client secrets in credentials.json.');
-    }
+    if (!key?.client_id || !key?.client_secret) return null;
     return {
       client_id: key.client_id,
       client_secret: key.client_secret,
+      origin: 'credentials.json',
     };
   } catch (err: any) {
-    if (err.code === 'ENOENT') {
-      throw new Error(
-        'No OAuth credentials found. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET ' +
-          'environment variables, or place a credentials.json file in the project root.'
-      );
-    }
+    if (err.code === 'ENOENT') return null;
     throw err;
   }
+}
+
+function readEnvCredentials(): CredentialSource | null {
+  const id = process.env.GOOGLE_CLIENT_ID;
+  const secret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!id || !secret) return null;
+  return { client_id: id, client_secret: secret, origin: 'env' };
+}
+
+async function readSavedTokenClientId(): Promise<string | null> {
+  try {
+    const content = await fs.readFile(getTokenPath(), 'utf8');
+    const parsed = JSON.parse(content);
+    return parsed?.client_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves the OAuth client to use.
+ *
+ * Resolution rules (in order):
+ *   1. If a saved token exists, pick the credential source whose `client_id`
+ *      matches the token. This auto-recovers when env vars and credentials.json
+ *      disagree but only one of them matches the token actually on disk.
+ *   2. If no saved token exists, prefer `credentials.json` over env vars.
+ *      Local dev usually has both; the file is the more deliberate source.
+ *   3. If credential sources disagree, log a warning so stale env vars or
+ *      stale credentials.json files surface immediately instead of silently
+ *      forcing re-auth.
+ *
+ * Throws a clear actionable error when nothing matches the saved token,
+ * rather than silently dropping the token and blocking on an interactive flow.
+ */
+async function loadClientSecrets(): Promise<CredentialSource> {
+  const sources: CredentialSource[] = [];
+  const fileSource = await readCredentialsJson();
+  if (fileSource) sources.push(fileSource);
+  const envSource = readEnvCredentials();
+  if (envSource) sources.push(envSource);
+
+  if (sources.length === 0) {
+    throw new Error(
+      'No OAuth credentials found. Place credentials.json in the project root, ' +
+        'or set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.'
+    );
+  }
+
+  if (fileSource && envSource && fileSource.client_id !== envSource.client_id) {
+    logger.warn(
+      `Conflicting OAuth client IDs: credentials.json=${shortId(fileSource.client_id)} ` +
+        `vs env=${shortId(envSource.client_id)}. credentials.json takes priority unless a ` +
+        `saved token forces otherwise.`
+    );
+  }
+
+  const tokenClientId = await readSavedTokenClientId();
+  if (tokenClientId) {
+    const match = sources.find((s) => s.client_id === tokenClientId);
+    if (match) {
+      logger.info(`Using OAuth client from ${match.origin} (matches saved token).`);
+      return match;
+    }
+    throw new Error(
+      `Saved token at ${getTokenPath()} is bound to client ${shortId(tokenClientId)} ` +
+        `but no available credential source provides it. ` +
+        `Available sources: ${sources.map((s) => `${s.origin}=${shortId(s.client_id)}`).join(', ')}. ` +
+        `Either re-run "npm run auth" with the credentials you actually want to use, or ` +
+        `align credentials.json / env vars with the saved token (then restart). ` +
+        `To wipe and start fresh: delete ${getTokenPath()}.`
+    );
+  }
+
+  const chosen = sources[0];
+  logger.info(`Using OAuth client from ${chosen.origin} (no saved token yet).`);
+  return chosen;
 }
 
 // ---------------------------------------------------------------------------
@@ -189,18 +256,6 @@ async function loadSavedCredentialsIfExist(): Promise<OAuth2Client | null> {
     const content = await fs.readFile(tokenPath, 'utf8');
     const credentials = sanitizeStoredTokenCredentials(JSON.parse(content));
     const { client_secret, client_id } = await loadClientSecrets();
-
-    if (credentials.client_id && credentials.client_id !== client_id) {
-      logger.warn(
-        `Saved token was issued for a different OAuth client ` +
-          `(token: ${credentials.client_id.slice(0, 8)}..., ` +
-          `current: ${client_id.slice(0, 8)}...). ` +
-          `Re-run "npm run auth" with the current credentials, ` +
-          `or remove conflicting GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET env vars.`
-      );
-      return null;
-    }
-
     const client = new google.auth.OAuth2(client_id, client_secret);
     client.setCredentials(credentials);
     return client;
