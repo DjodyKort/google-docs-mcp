@@ -103,7 +103,7 @@ export async function extractMarkdown(
     documentId,
     includeTabsContent: !!tabId,
     fields: tabId
-      ? 'title,documentId,inlineObjects,positionedObjects,tabs(tabProperties,childTabs,documentTab(body,documentStyle,namedStyles,lists))'
+      ? 'title,documentId,tabs(tabProperties,childTabs,documentTab(body,documentStyle,namedStyles,lists,inlineObjects,positionedObjects))'
       : 'title,documentId,body,documentStyle,namedStyles,lists,inlineObjects,positionedObjects',
   });
 
