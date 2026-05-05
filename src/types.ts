@@ -155,6 +155,9 @@ export const ParagraphStyleParameters = z
 // Subset of ParagraphStyle used for passing to helpers
 export type ParagraphStyleArgs = z.infer<typeof ParagraphStyleParameters>;
 
+export const SpreadsheetCellValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+export type SpreadsheetCellValue = z.infer<typeof SpreadsheetCellValueSchema>;
+
 // --- Combination Schemas for Tools ---
 
 export const ApplyTextStyleToolParameters = DocumentIdParameter.extend({

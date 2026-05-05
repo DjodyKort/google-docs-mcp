@@ -2,6 +2,7 @@ import type { FastMCP } from 'fastmcp';
 import { UserError } from 'fastmcp';
 import { z } from 'zod';
 import { getSheetsClient } from '../../clients.js';
+import { SpreadsheetCellValueSchema } from '../../types.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -19,7 +20,7 @@ export function register(server: FastMCP) {
           z.object({
             range: z.string().describe('A1 notation range (e.g., "Sheet1!A1:B2").'),
             values: z
-              .array(z.array(z.any()))
+              .array(z.array(SpreadsheetCellValueSchema))
               .describe('2D array of values to write. Each inner array represents a row.'),
           })
         )

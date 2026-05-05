@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { drive_v3 } from 'googleapis';
 import { getDriveClient, getSheetsClient } from '../../clients.js';
 import * as SheetsHelpers from '../../googleSheetsApiHelpers.js';
+import { SpreadsheetCellValueSchema } from '../../types.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -19,7 +20,7 @@ export function register(server: FastMCP) {
           'ID of folder where spreadsheet should be created. If not provided, creates in Drive root.'
         ),
       initialData: z
-        .array(z.array(z.any()))
+        .array(z.array(SpreadsheetCellValueSchema))
         .optional()
         .describe(
           'Optional initial data to populate in the first sheet. Each inner array represents a row.'

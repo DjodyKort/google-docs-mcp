@@ -3,6 +3,7 @@ import { UserError } from 'fastmcp';
 import { z } from 'zod';
 import { getSheetsClient } from '../../clients.js';
 import * as SheetsHelpers from '../../googleSheetsApiHelpers.js';
+import { SpreadsheetCellValueSchema } from '../../types.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -21,7 +22,7 @@ export function register(server: FastMCP) {
           'The table name or table ID to append rows to. Use listTables to see available tables.'
         ),
       values: z
-        .array(z.array(z.any()))
+        .array(z.array(SpreadsheetCellValueSchema))
         .min(1)
         .describe('2D array of values to append. Each inner array represents a row.'),
       valueInputOption: z
