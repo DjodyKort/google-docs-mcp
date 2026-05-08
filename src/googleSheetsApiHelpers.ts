@@ -495,6 +495,51 @@ export async function formatCells(
 }
 
 /**
+ * Sets the native Google Sheets note field on a cell or range.
+ * This is cell-attached Sheets metadata, not a Drive comment thread.
+ */
+export async function setCellNote(
+  sheets: Sheets,
+  spreadsheetId: string,
+  range: string,
+  note: string | null
+): Promise<sheets_v4.Schema$BatchUpdateSpreadsheetResponse> {
+  try {
+    const { sheetName, a1Range } = parseRange(range);
+    const sheetId = await resolveSheetId(sheets, spreadsheetId, sheetName);
+    const gridRange = parseA1ToGridRange(a1Range, sheetId);
+
+    const response = await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: gridRange,
+              cell: { note },
+              fields: 'note',
+            },
+          },
+        ],
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    if (error.code === 404) {
+      throw new UserError(`Spreadsheet not found (ID: ${spreadsheetId}). Check the ID.`);
+    }
+    if (error.code === 403) {
+      throw new UserError(
+        `Permission denied for spreadsheet (ID: ${spreadsheetId}). Ensure you have write access.`
+      );
+    }
+    if (error instanceof UserError) throw error;
+    throw new UserError(`Failed to set cell note: ${error.message || 'Unknown error'}`);
+  }
+}
+
+/**
  * Freezes rows and/or columns in a sheet so they remain visible when scrolling.
  */
 export async function freezeRowsAndColumns(

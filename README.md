@@ -153,6 +153,8 @@ Tools across Google Docs, Sheets, and Drive:
 | `deleteConditionalFormatting` | Delete conditional formatting rules by index                          |
 | `groupRows`                   | Group rows for collapsible sections                                   |
 | `ungroupAllRows`              | Remove all row groupings                                              |
+| `createSheetsComment`         | Create a spreadsheet comment, optionally with a direct cell link      |
+| `createSheetsCellNote`        | Create a native cell note attached to a cell or range                 |
 | `insertChart`                 | Create a chart from data                                              |
 | `deleteChart`                 | Remove a chart                                                        |
 
@@ -463,9 +465,10 @@ Without `GOOGLE_MCP_PROFILE`, behavior is unchanged.
 ## Known Limitations
 
 - **Comment anchoring:** Programmatically created comments appear in the comment list but aren't visibly anchored to text in the Google Docs UI. This is a Google Drive API limitation.
+- **Sheets comment anchoring:** API-created spreadsheet comments can store anchor metadata, but Google Workspace editors treat Drive API anchors as unanchored comments. Use `createSheetsComment` with `includeCellLink=true` for a clickable link to the target cell, or `createSheetsCellNote` when the review text must be attached to the cell itself.
 - **Comment resolution:** Resolved status may not persist in the Google Docs UI.
 - **Converted documents:** Docs converted from Word may not support all API operations.
-- **Markdown tables/images:** Not yet supported in the markdown-to-Docs conversion.
+- **Markdown images:** Not yet supported in the markdown-to-Docs conversion.
 - **Deeply nested lists:** Lists with 3+ nesting levels may have formatting quirks.
 - **Gmail hard delete:** `trashMessage` moves messages to Trash (reversible). Permanent deletion requires the broader `https://mail.google.com/` scope and is not exposed in v0.1.
 - **Gmail attachments:** `getMessage` returns attachment metadata but does not download attachment bytes yet.
