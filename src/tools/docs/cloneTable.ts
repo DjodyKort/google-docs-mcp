@@ -9,7 +9,7 @@ import { buildInsertTableWithDataRequests } from './insertTableWithData.js';
 import { extractDocumentTables, extractTableSnapshot } from './structureHelpers.js';
 
 const CLONE_TABLE_SOURCE_FIELDS =
-  'body(content(startIndex,endIndex,table(rows,columns,tableStyle(tableColumnProperties(width,widthType)),tableRows(startIndex,endIndex,tableRowStyle(minRowHeight,preventOverflow,tableHeader),tableCells(startIndex,endIndex,tableCellStyle(backgroundColor,borderTop(color,width,dashStyle),borderBottom(color,width,dashStyle),borderLeft(color,width,dashStyle),borderRight(color,width,dashStyle),contentAlignment,paddingTop,paddingBottom,paddingLeft,paddingRight,rowSpan,columnSpan),content(paragraph(elements(startIndex,endIndex,textRun(content,textStyle(bold))))))))),tabs(tabProperties(tabId,title),documentTab(body(content(startIndex,endIndex,table(rows,columns,tableStyle(tableColumnProperties(width,widthType)),tableRows(startIndex,endIndex,tableRowStyle(minRowHeight,preventOverflow,tableHeader),tableCells(startIndex,endIndex,tableCellStyle(backgroundColor,borderTop(color,width,dashStyle),borderBottom(color,width,dashStyle),borderLeft(color,width,dashStyle),borderRight(color,width,dashStyle),contentAlignment,paddingTop,paddingBottom,paddingLeft,paddingRight,rowSpan,columnSpan),content(paragraph(elements(startIndex,endIndex,textRun(content,textStyle(bold))))))))))))';
+  'tabs(tabProperties(tabId,title),documentTab(body(content(startIndex,endIndex,table(rows,columns,tableStyle(tableColumnProperties(width,widthType)),tableRows(startIndex,endIndex,tableRowStyle(minRowHeight,preventOverflow,tableHeader),tableCells(startIndex,endIndex,tableCellStyle(backgroundColor,borderTop(color,width,dashStyle),borderBottom(color,width,dashStyle),borderLeft(color,width,dashStyle),borderRight(color,width,dashStyle),contentAlignment,paddingTop,paddingBottom,paddingLeft,paddingRight,rowSpan,columnSpan),content(paragraph(elements(startIndex,endIndex,textRun(content,textStyle(bold))))))))))))';
 
 const CloneTableParameters = DocumentIdParameter.extend({
   sourceDocumentId: z.string().min(1).describe('Document ID containing the source table template.'),
@@ -61,6 +61,11 @@ export function register(server: FastMCP) {
     parameters: CloneTableParameters,
     execute: async (args, { log }) => {
       const docs = await getDocsClient();
+      const copyColumnWidths = args.copyColumnWidths ?? true;
+      const copyRowStyles = args.copyRowStyles ?? true;
+      const copyCellStyles = args.copyCellStyles ?? true;
+      const copyPinnedHeaderRows = args.copyPinnedHeaderRows ?? true;
+      const copyHeaderBold = args.copyHeaderBold ?? true;
       log.info(
         `Cloning table ${args.sourceTableId} from ${args.sourceDocumentId} into ${args.documentId} at index ${args.index}`
       );
@@ -115,7 +120,7 @@ export function register(server: FastMCP) {
           documentId: args.documentId,
           includeTabsContent: true,
           fields:
-            'body(content(startIndex,endIndex,table(rows,columns,tableRows(tableCells(startIndex,endIndex,content(paragraph(elements(startIndex,endIndex,textRun(content))))))))),tabs(tabProperties(tabId,title),documentTab(body(content(startIndex,endIndex,table(rows,columns,tableRows(tableCells(startIndex,endIndex,content(paragraph(elements(startIndex,endIndex,textRun(content)))))))))))',
+            'tabs(tabProperties(tabId,title),documentTab(body(content(startIndex,endIndex,table(rows,columns,tableRows(tableCells(startIndex,endIndex,content(paragraph(elements(startIndex,endIndex,textRun(content)))))))))))',
         });
 
         const targetTable = extractDocumentTables(targetRes.data, args.targetTabId)
@@ -138,7 +143,7 @@ export function register(server: FastMCP) {
 
         const styleRequests: docs_v1.Schema$Request[] = [];
 
-        if (args.copyColumnWidths) {
+        if (copyColumnWidths) {
           for (const columnStyle of snapshot.columnStyles) {
             if (columnStyle.widthType !== 'FIXED_WIDTH' || !columnStyle.widthPt) continue;
             styleRequests.push(
@@ -152,7 +157,7 @@ export function register(server: FastMCP) {
           }
         }
 
-        if (args.copyRowStyles) {
+        if (copyRowStyles) {
           for (const rowStyle of snapshot.rowStyles) {
             const request = GDocsHelpers.buildTableRowStyleRequest(
               targetTable.startIndex,
@@ -165,7 +170,7 @@ export function register(server: FastMCP) {
           }
         }
 
-        if (args.copyPinnedHeaderRows && snapshot.pinnedHeaderRowsCount > 0) {
+        if (copyPinnedHeaderRows && snapshot.pinnedHeaderRowsCount > 0) {
           styleRequests.push(
             GDocsHelpers.buildPinTableHeaderRowsRequest(
               targetTable.startIndex,
@@ -175,7 +180,7 @@ export function register(server: FastMCP) {
           );
         }
 
-        if (args.copyCellStyles) {
+        if (copyCellStyles) {
           for (const cellStyle of snapshot.cellStyles) {
             const requestInfo = GDocsHelpers.buildTableCellStyleRequest(
               targetTable.startIndex,
@@ -199,7 +204,7 @@ export function register(server: FastMCP) {
           }
         }
 
-        if (args.copyHeaderBold) {
+        if (copyHeaderBold) {
           for (const cellStyle of snapshot.cellStyles) {
             if (!cellStyle.hasBoldText) continue;
             const targetCell = targetTable.cells.find(

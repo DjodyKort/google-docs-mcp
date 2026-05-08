@@ -90,7 +90,7 @@ liveDescribe('cloneTable live integration', () => {
       rowSpan: 1,
       columnSpan: 2,
       backgroundColor: headerBg,
-      contentAlignment: 'CENTER',
+      contentAlignment: 'MIDDLE',
       paddingTopPt: 6,
       paddingBottomPt: 6,
     });
@@ -135,7 +135,7 @@ liveDescribe('cloneTable live integration', () => {
     expect(snapshot!.cellStyles[0]).toMatchObject({
       rowIndex: 0,
       columnIndex: 0,
-      contentAlignment: 'CENTER',
+      contentAlignment: 'MIDDLE',
       paddingTopPt: 6,
       paddingBottomPt: 6,
       hasBoldText: true,
