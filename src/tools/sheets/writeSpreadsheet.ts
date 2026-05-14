@@ -10,7 +10,7 @@ export function register(server: FastMCP) {
     name: 'writeSpreadsheet',
     description:
       'Writes data to a range in a spreadsheet, overwriting existing values. Use appendRows to add data without overwriting.',
-    parameters: z.object({
+    parameters: z.strictObject({
       spreadsheetId: z
         .string()
         .describe(

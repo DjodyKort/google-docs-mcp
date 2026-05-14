@@ -8,7 +8,7 @@ export function register(server: FastMCP) {
   server.addTool({
     name: 'listSpreadsheets',
     description: 'Lists spreadsheets in your Drive, optionally filtered by name or content.',
-    parameters: z.object({
+    parameters: z.strictObject({
       maxResults: z
         .number()
         .int()

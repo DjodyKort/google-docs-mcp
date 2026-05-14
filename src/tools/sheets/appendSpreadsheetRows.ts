@@ -10,7 +10,7 @@ export function register(server: FastMCP) {
     name: 'appendRows',
     description:
       'Appends rows to the end of a sheet. Data is added after the last row with content in the specified range.',
-    parameters: z.object({
+    parameters: z.strictObject({
       spreadsheetId: z
         .string()
         .describe(

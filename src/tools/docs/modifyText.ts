@@ -17,7 +17,7 @@ const RangeTarget = z
     path: ['endIndex'],
   });
 
-const InsertionTarget = z.object({
+const InsertionTarget = z.strictObject({
   insertionIndex: z.number().int().min(1).describe('Index to insert at (1-based).'),
 });
 

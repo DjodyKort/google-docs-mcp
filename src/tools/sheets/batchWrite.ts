@@ -9,7 +9,7 @@ export function register(server: FastMCP) {
     name: 'batchWrite',
     description:
       'Writes data to multiple ranges in a single API call. More efficient than multiple separate writeSpreadsheet calls when updating several ranges at once.',
-    parameters: z.object({
+    parameters: z.strictObject({
       spreadsheetId: z
         .string()
         .describe(
@@ -17,7 +17,7 @@ export function register(server: FastMCP) {
         ),
       data: z
         .array(
-          z.object({
+          z.strictObject({
             range: z.string().describe('A1 notation range (e.g., "Sheet1!A1:B2").'),
             values: z
               .array(z.array(SpreadsheetCellValueSchema))

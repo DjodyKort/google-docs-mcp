@@ -10,7 +10,7 @@ export function register(server: FastMCP) {
     name: 'appendTableRows',
     description:
       'Appends rows to the end of a table using table-aware insertion. This method respects footers and automatically inserts rows before the footer if one exists.',
-    parameters: z.object({
+    parameters: z.strictObject({
       spreadsheetId: z
         .string()
         .describe(

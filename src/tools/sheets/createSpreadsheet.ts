@@ -11,7 +11,7 @@ export function register(server: FastMCP) {
     name: 'createSpreadsheet',
     description:
       'Creates a new spreadsheet. Optionally places it in a specific folder and populates it with initial data.',
-    parameters: z.object({
+    parameters: z.strictObject({
       title: z.string().min(1).describe('Title for the new spreadsheet.'),
       parentFolderId: z
         .string()

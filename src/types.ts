@@ -27,7 +27,7 @@ export function hexToRgbColor(hex: string): docs_v1.Schema$RgbColor | null {
 
 // --- Zod Schema Fragments for Reusability ---
 
-export const DocumentIdParameter = z.object({
+export const DocumentIdParameter = z.strictObject({
   documentId: z
     .string()
     .describe('The document ID — the long string between /d/ and /edit in a Google Docs URL.'),
@@ -72,7 +72,7 @@ export const OptionalRangeParameters = z
     path: ['endIndex'],
   });
 
-export const TextFindParameter = z.object({
+export const TextFindParameter = z.strictObject({
   textToFind: z.string().min(1).describe('The exact text string to locate.'),
   matchInstance: z
     .number()
@@ -184,7 +184,7 @@ export const ApplyParagraphStyleToolParameters = DocumentIdParameter.extend({
     .union([
       RangeParameters, // User provides paragraph start/end (less likely)
       TextFindParameter, // Find text within paragraph to apply style
-      z.object({
+      z.strictObject({
         // Target by specific index within the paragraph
         indexWithinParagraph: z
           .number()
