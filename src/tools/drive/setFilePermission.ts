@@ -23,10 +23,7 @@ export function register(server: FastMCP) {
         .describe(
           'Who this permission applies to. "anyone" means anyone with the link (combine with allowFileDiscovery=false to keep it unlisted).'
         ),
-      emailAddress: z
-        .string()
-        .optional()
-        .describe("Required when type is 'user' or 'group'."),
+      emailAddress: z.string().optional().describe("Required when type is 'user' or 'group'."),
       domain: z.string().optional().describe("Required when type is 'domain'."),
       sendNotificationEmail: z
         .boolean()
