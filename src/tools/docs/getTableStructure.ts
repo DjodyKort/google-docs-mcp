@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getDocsClient } from '../../clients.js';
 import { DocumentIdParameter } from '../../types.js';
 import { getTableById } from './structureHelpers.js';
+import { TABLE_CONTENT_INDEXED_BODY_FIELDS, buildDocumentGetFields } from './tabFieldMasks.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -31,9 +32,8 @@ export function register(server: FastMCP) {
       try {
         const res = await docs.documents.get({
           documentId: args.documentId,
-          includeTabsContent: true,
-          fields:
-            'body(content(startIndex,endIndex,table(tableRows(tableCells(startIndex,endIndex,content(startIndex,endIndex,paragraph(elements(textRun(content))))))))),tabs(tabProperties(tabId,title),documentTab(body(content(startIndex,endIndex,table(tableRows(tableCells(startIndex,endIndex,content(startIndex,endIndex,paragraph(elements(textRun(content)))))))))))',
+          ...(args.tabId && { includeTabsContent: true }),
+          fields: buildDocumentGetFields(TABLE_CONTENT_INDEXED_BODY_FIELDS, args.tabId),
         });
 
         const table = getTableById(res.data, args.tableId, args.tabId);

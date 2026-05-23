@@ -123,21 +123,7 @@ export function register(server: FastMCP) {
       try {
         // Verify tab exists if specified
         if (args.tabId) {
-          const docInfo = await docs.documents.get({
-            documentId: args.documentId,
-            includeTabsContent: true,
-            suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
-            fields: 'tabs(tabProperties(tabId))',
-          });
-          const targetTab = GDocsHelpers.findTabById(docInfo.data, args.tabId);
-          if (!targetTab) {
-            throw new UserError(`Tab with ID "${args.tabId}" not found in document.`);
-          }
-          if (!targetTab.documentTab) {
-            throw new UserError(
-              `Tab "${args.tabId}" does not have content (may not be a document tab).`
-            );
-          }
+          const targetTab = await GDocsHelpers.getDocumentTab(docs, args.documentId, args.tabId);
         }
 
         // Resolve target to numeric indices

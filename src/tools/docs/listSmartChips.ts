@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getDocsClient } from '../../clients.js';
 import { DocumentIdParameter } from '../../types.js';
 import { extractSmartChips } from './smartChipHelpers.js';
+import { SMART_CHIP_BODY_FIELDS, buildDocumentGetFields } from './tabFieldMasks.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -27,9 +28,8 @@ export function register(server: FastMCP) {
       try {
         const res = await docs.documents.get({
           documentId: args.documentId,
-          includeTabsContent: true,
-          fields:
-            'body(content(paragraph(elements(startIndex,endIndex,dateElement(dateId,dateElementProperties),richLink(richLinkId,richLinkProperties),person(personId,personProperties))),table(tableRows(tableCells(content(paragraph(elements(startIndex,endIndex,dateElement(dateId,dateElementProperties),richLink(richLinkId,richLinkProperties),person(personId,personProperties))))))))),tabs(tabProperties(tabId,title),documentTab(body(content(paragraph(elements(startIndex,endIndex,dateElement(dateId,dateElementProperties),richLink(richLinkId,richLinkProperties),person(personId,personProperties))),table(tableRows(tableCells(content(paragraph(elements(startIndex,endIndex,dateElement(dateId,dateElementProperties),richLink(richLinkId,richLinkProperties),person(personId,personProperties)))))))))))',
+          ...(args.tabId && { includeTabsContent: true }),
+          fields: buildDocumentGetFields(SMART_CHIP_BODY_FIELDS, args.tabId),
         });
 
         const chips = extractSmartChips(res.data, args.tabId);

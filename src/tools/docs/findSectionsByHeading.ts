@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getDocsClient } from '../../clients.js';
 import { DocumentIdParameter } from '../../types.js';
 import { findHeadings } from './structureHelpers.js';
+import { HEADING_BODY_FIELDS, buildDocumentGetFields } from './tabFieldMasks.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -32,9 +33,8 @@ export function register(server: FastMCP) {
       try {
         const res = await docs.documents.get({
           documentId: args.documentId,
-          includeTabsContent: true,
-          fields:
-            'body(content(startIndex,endIndex,paragraph(paragraphStyle(namedStyleType),elements(textRun(content))),table(tableRows(tableCells(startIndex,endIndex,content(paragraph(elements(textRun(content))))))))),tabs(tabProperties(tabId,title),documentTab(body(content(startIndex,endIndex,paragraph(paragraphStyle(namedStyleType),elements(textRun(content))),table(tableRows(tableCells(startIndex,endIndex,content(paragraph(elements(textRun(content)))))))))))',
+          ...(args.tabId && { includeTabsContent: true }),
+          fields: buildDocumentGetFields(HEADING_BODY_FIELDS, args.tabId),
         });
 
         const sections = findHeadings(res.data, args.headings, args.tabId);

@@ -23,40 +23,23 @@ export function register(server: FastMCP) {
 
       try {
         // Verify the tab exists
-        const docInfo = await docs.documents.get({
-          documentId: args.documentId,
-          includeTabsContent: true,
-          fields: 'tabs(tabProperties,documentTab(body))',
-        });
-        const targetTab = GDocsHelpers.findTabById(docInfo.data, args.tabId);
-        if (!targetTab) {
-          throw new UserError(`Tab with ID "${args.tabId}" not found in document.`);
-        }
+        const targetTab = await GDocsHelpers.getDocumentTab(docs, args.documentId, args.tabId);
 
-        const oldTitle = targetTab.tabProperties?.title || '(untitled)';
-
-        await docs.documents.batchUpdate({
-          documentId: args.documentId,
-          requestBody: {
-            requests: [
-              {
-                updateDocumentTabProperties: {
-                  tabProperties: {
-                    tabId: args.tabId,
-                    title: args.newTitle,
-                  },
-                  fields: 'title',
-                },
+        await GDocsHelpers.executeBatchUpdate(docs, args.documentId, [
+          {
+            updateDocumentTabProperties: {
+              tabProperties: {
+                tabId: args.tabId,
+                title: args.newTitle,
               },
-            ],
-          },
-        });
+              fields: 'title',
+            },
+          } as any,
+        ]);
 
-        return `Successfully renamed tab from "${oldTitle}" to "${args.newTitle}".`;
+        return `Successfully renamed tab "${args.tabId}" to "${args.newTitle}".`;
       } catch (error: any) {
-        log.error(
-          `Error renaming tab ${args.tabId} in doc ${args.documentId}: ${error.message || error}`
-        );
+        log.error(`Error renaming tab in doc ${args.documentId}: ${error.message || error}`);
         if (error instanceof UserError) throw error;
         if (error.code === 404) throw new UserError(`Document not found (ID: ${args.documentId}).`);
         if (error.code === 403)

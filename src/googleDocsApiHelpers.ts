@@ -4,6 +4,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { UserError } from 'fastmcp';
 import { TextStyleArgs, ParagraphStyleArgs, hexToRgbColor, NotImplementedError } from './types.js';
 import { logger } from './logger.js';
+import { buildTabsFieldMask } from './tools/docs/tabFieldMasks.js';
 
 type Docs = docs_v1.Docs; // Alias for convenience
 
@@ -238,7 +239,9 @@ export async function findTextRange(
       ...(needsTabsContent && { includeTabsContent: true }),
       // Request more fields to handle various container types (not just paragraphs)
       fields: needsTabsContent
-        ? 'tabs(tabProperties(tabId),documentTab(body(content(paragraph(elements(startIndex,endIndex,textRun(content))),table,sectionBreak,tableOfContents,startIndex,endIndex))))'
+        ? buildTabsFieldMask(
+            'documentTab(body(content(paragraph(elements(startIndex,endIndex,textRun(content))),table,sectionBreak,tableOfContents,startIndex,endIndex)))'
+          )
         : 'body(content(paragraph(elements(startIndex,endIndex,textRun(content))),table,sectionBreak,tableOfContents,startIndex,endIndex))',
     });
 
@@ -419,7 +422,9 @@ export async function getParagraphRange(
       ...(needsTabsContent && { includeTabsContent: true }),
       // Request more comprehensive structure information
       fields: needsTabsContent
-        ? 'tabs(tabProperties(tabId),documentTab(body(content(startIndex,endIndex,paragraph,table,sectionBreak,tableOfContents))))'
+        ? buildTabsFieldMask(
+            'documentTab(body(content(startIndex,endIndex,paragraph,table,sectionBreak,tableOfContents)))'
+          )
         : 'body(content(startIndex,endIndex,paragraph,table,sectionBreak,tableOfContents))',
     });
 
@@ -1396,4 +1401,78 @@ export function findTabById(
   };
 
   return searchTabs(doc.tabs);
+}
+
+/**
+ * Fetches a document with tab content and validates that the given tabId exists and has
+ * a documentTab body. Returns the resolved `docs_v1.Schema$Tab`.
+ *
+ * This replaces the repeated pattern:
+ *   docs.documents.get({ includeTabsContent: true, fields: buildTabsFieldMask(...) })
+ *   + findTabById() + two UserError throws
+ *
+ * @param docs     - Authenticated Docs client
+ * @param documentId - Target document ID
+ * @param tabId    - Tab ID to locate
+ * @param documentTabFields - The documentTab subfields needed (passed to buildTabsFieldMask)
+ */
+export async function getDocumentTab(
+  docs: Docs,
+  documentId: string,
+  tabId: string,
+  documentTabFields: string = 'documentTab(body(content(endIndex)))'
+): Promise<docs_v1.Schema$Tab> {
+  const res = await docs.documents.get({
+    documentId,
+    includeTabsContent: true,
+    suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
+    fields: buildTabsFieldMask(documentTabFields),
+  });
+  const tab = findTabById(res.data, tabId);
+  if (!tab) {
+    throw new UserError(`Tab with ID "${tabId}" not found in document.`);
+  }
+  if (!tab.documentTab) {
+    throw new UserError(`Tab "${tabId}" does not have content (may not be a document tab).`);
+  }
+  return tab;
+}
+
+/**
+ * Returns the 1-based insertion index for appending to a document or tab body —
+ * i.e. `endIndex - 1` of the last structural element, which positions content
+ * immediately before the document's trailing newline.
+ *
+ * @param docs        - Authenticated Docs client
+ * @param documentId  - Target document ID
+ * @param tabId       - Optional tab ID; if omitted uses the root body
+ */
+export async function getAppendIndex(
+  docs: Docs,
+  documentId: string,
+  tabId?: string
+): Promise<number> {
+  const needsTabsContent = !!tabId;
+  const res = await docs.documents.get({
+    documentId,
+    ...(needsTabsContent && { includeTabsContent: true }),
+    suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
+    fields: needsTabsContent
+      ? buildTabsFieldMask('documentTab(body(content(endIndex)))')
+      : 'body(content(endIndex))',
+  });
+
+  let content: docs_v1.Schema$StructuralElement[] | undefined;
+  if (tabId) {
+    const tab = findTabById(res.data, tabId);
+    if (!tab) throw new UserError(`Tab with ID "${tabId}" not found in document.`);
+    if (!tab.documentTab) throw new UserError(`Tab "${tabId}" does not have content.`);
+    content = tab.documentTab.body?.content;
+  } else {
+    content = res.data.body?.content;
+  }
+
+  if (!content || content.length === 0) return 1;
+  const lastEndIndex = content[content.length - 1]?.endIndex;
+  return lastEndIndex != null ? lastEndIndex - 1 : 1;
 }

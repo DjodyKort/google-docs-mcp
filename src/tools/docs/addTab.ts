@@ -44,15 +44,7 @@ export function register(server: FastMCP) {
       try {
         // If parentTabId is provided, verify it exists
         if (args.parentTabId) {
-          const docInfo = await docs.documents.get({
-            documentId: args.documentId,
-            includeTabsContent: true,
-            fields: 'tabs(tabProperties,documentTab(body))',
-          });
-          const parentTab = GDocsHelpers.findTabById(docInfo.data, args.parentTabId);
-          if (!parentTab) {
-            throw new UserError(`Parent tab with ID "${args.parentTabId}" not found in document.`);
-          }
+          await GDocsHelpers.getDocumentTab(docs, args.documentId, args.parentTabId);
         }
 
         const tabProperties: Record<string, unknown> = {};

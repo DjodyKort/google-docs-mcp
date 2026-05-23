@@ -51,20 +51,7 @@ export function register(server: FastMCP) {
 
       try {
         if (args.tabId) {
-          const docInfo = await docs.documents.get({
-            documentId: args.documentId,
-            includeTabsContent: true,
-            fields: 'tabs(tabProperties,documentTab(body(content(endIndex))))',
-          });
-          const targetTab = GDocsHelpers.findTabById(docInfo.data, args.tabId);
-          if (!targetTab) {
-            throw new UserError(`Tab with ID "${args.tabId}" not found in document.`);
-          }
-          if (!targetTab.documentTab) {
-            throw new UserError(
-              `Tab "${args.tabId}" does not have content (may not be a document tab).`
-            );
-          }
+          const targetTab = await GDocsHelpers.getDocumentTab(docs, args.documentId, args.tabId);
         }
 
         // --- Apps Script path: local files when APPS_SCRIPT_DEPLOYMENT_ID is set ---

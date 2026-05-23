@@ -5,6 +5,7 @@ import { getDocsClient, getDriveClient } from '../../clients.js';
 import { DocumentIdParameter, NotImplementedError } from '../../types.js';
 import * as GDocsHelpers from '../../googleDocsApiHelpers.js';
 import { docsJsonToMarkdown } from '../../markdown-transformer/index.js';
+import { buildTabsFieldMask } from './tabFieldMasks.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -50,8 +51,9 @@ export function register(server: FastMCP) {
         const res = await docs.documents.get({
           documentId: args.documentId,
           includeTabsContent: needsTabsContent,
+          suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
           fields: needsTabsContent
-            ? 'title,documentId,tabs(tabProperties,childTabs,documentTab(body,documentStyle,namedStyles,lists,inlineObjects,positionedObjects))'
+            ? `title,documentId,${buildTabsFieldMask('documentTab(body,documentStyle,namedStyles,lists)')}`
             : fields,
         });
         log.info(`Fetched doc: ${args.documentId}${args.tabId ? ` (tab: ${args.tabId})` : ''}`);
@@ -105,33 +107,27 @@ export function register(server: FastMCP) {
         let textContent = '';
         let elementCount = 0;
 
+        const extractFromElements = (elements: any[]) => {
+          for (const element of elements || []) {
+            elementCount++;
+            if (element.paragraph?.elements) {
+              for (const pe of element.paragraph.elements) {
+                if (pe.textRun?.content) textContent += pe.textRun.content;
+              }
+            }
+            if (element.table?.tableRows) {
+              for (const row of element.table.tableRows) {
+                for (const cell of row.tableCells || []) {
+                  extractFromElements(cell.content || []);
+                }
+              }
+            }
+          }
+        };
+
         // Process all content elements from contentSource
         contentSource.body?.content?.forEach((element: any) => {
-          elementCount++;
-
-          // Handle paragraphs
-          if (element.paragraph?.elements) {
-            element.paragraph.elements.forEach((pe: any) => {
-              if (pe.textRun?.content) {
-                textContent += pe.textRun.content;
-              }
-            });
-          }
-
-          // Handle tables
-          if (element.table?.tableRows) {
-            element.table.tableRows.forEach((row: any) => {
-              row.tableCells?.forEach((cell: any) => {
-                cell.content?.forEach((cellElement: any) => {
-                  cellElement.paragraph?.elements?.forEach((pe: any) => {
-                    if (pe.textRun?.content) {
-                      textContent += pe.textRun.content;
-                    }
-                  });
-                });
-              });
-            });
-          }
+          extractFromElements([element]);
         });
 
         if (!textContent.trim()) return 'Document found, but appears empty.';

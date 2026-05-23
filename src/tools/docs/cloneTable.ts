@@ -7,9 +7,13 @@ import { DocumentIdParameter } from '../../types.js';
 import * as GDocsHelpers from '../../googleDocsApiHelpers.js';
 import { buildInsertTableWithDataRequests } from './insertTableWithData.js';
 import { extractDocumentTables, extractTableSnapshot } from './structureHelpers.js';
+import { buildDocumentGetFields } from './tabFieldMasks.js';
 
-const CLONE_TABLE_SOURCE_FIELDS =
-  'tabs(tabProperties(tabId,title),documentTab(body(content(startIndex,endIndex,table(rows,columns,tableStyle(tableColumnProperties(width,widthType)),tableRows(startIndex,endIndex,tableRowStyle(minRowHeight,preventOverflow,tableHeader),tableCells(startIndex,endIndex,tableCellStyle(backgroundColor,borderTop(color,width,dashStyle),borderBottom(color,width,dashStyle),borderLeft(color,width,dashStyle),borderRight(color,width,dashStyle),contentAlignment,paddingTop,paddingBottom,paddingLeft,paddingRight,rowSpan,columnSpan),content(paragraph(elements(startIndex,endIndex,textRun(content,textStyle(bold))))))))))))';
+const CLONE_TABLE_SOURCE_BODY_FIELDS =
+  'body(content(startIndex,endIndex,table(rows,columns,tableStyle(tableColumnProperties(width,widthType)),tableRows(startIndex,endIndex,tableRowStyle(minRowHeight,preventOverflow,tableHeader),tableCells(startIndex,endIndex,tableCellStyle(backgroundColor,borderTop(color,width,dashStyle),borderBottom(color,width,dashStyle),borderLeft(color,width,dashStyle),borderRight(color,width,dashStyle),contentAlignment,paddingTop,paddingBottom,paddingLeft,paddingRight,rowSpan,columnSpan),content(paragraph(elements(startIndex,endIndex,textRun(content,textStyle(bold))))))))))';
+
+const CLONE_TABLE_TARGET_BODY_FIELDS =
+  'body(content(startIndex,endIndex,table(rows,columns,tableRows(tableCells(startIndex,endIndex,content(paragraph(elements(startIndex,endIndex,textRun(content)))))))))';
 
 const CloneTableParameters = DocumentIdParameter.extend({
   sourceDocumentId: z.string().min(1).describe('Document ID containing the source table template.'),
@@ -73,8 +77,8 @@ export function register(server: FastMCP) {
       try {
         const sourceRes = await docs.documents.get({
           documentId: args.sourceDocumentId,
-          includeTabsContent: true,
-          fields: CLONE_TABLE_SOURCE_FIELDS,
+          ...(args.sourceTabId && { includeTabsContent: true }),
+          fields: buildDocumentGetFields(CLONE_TABLE_SOURCE_BODY_FIELDS, args.sourceTabId),
         });
 
         const snapshot = extractTableSnapshot(sourceRes.data, args.sourceTableId, args.sourceTabId);
@@ -90,17 +94,7 @@ export function register(server: FastMCP) {
         }
 
         if (args.targetTabId) {
-          const targetInfo = await docs.documents.get({
-            documentId: args.documentId,
-            includeTabsContent: true,
-            fields: 'tabs(tabProperties,documentTab(body))',
-          });
-          const targetTab = GDocsHelpers.findTabById(targetInfo.data, args.targetTabId);
-          if (!targetTab)
-            throw new UserError(`Target tab "${args.targetTabId}" not found in document.`);
-          if (!targetTab.documentTab) {
-            throw new UserError(`Target tab "${args.targetTabId}" does not have document content.`);
-          }
+          await GDocsHelpers.getDocumentTab(docs, args.documentId, args.targetTabId);
         }
 
         const insertRequests = buildInsertTableWithDataRequests(
@@ -118,9 +112,8 @@ export function register(server: FastMCP) {
 
         const targetRes = await docs.documents.get({
           documentId: args.documentId,
-          includeTabsContent: true,
-          fields:
-            'tabs(tabProperties(tabId,title),documentTab(body(content(startIndex,endIndex,table(rows,columns,tableRows(tableCells(startIndex,endIndex,content(paragraph(elements(startIndex,endIndex,textRun(content)))))))))))',
+          ...(args.targetTabId && { includeTabsContent: true }),
+          fields: buildDocumentGetFields(CLONE_TABLE_TARGET_BODY_FIELDS, args.targetTabId),
         });
 
         const targetTable = extractDocumentTables(targetRes.data, args.targetTabId)
