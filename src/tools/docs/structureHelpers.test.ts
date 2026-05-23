@@ -1,6 +1,83 @@
 import { describe, expect, it } from 'vitest';
 import { extractDocumentTables, findHeadings, getTableById } from './structureHelpers.js';
 
+// Shared tabbed-document fixture — represents the shape returned by
+// documents.get when includeTabsContent: true and a tabs field mask is used.
+const mockTabbedDocument = {
+  // No top-level body — only tabs are populated when includeTabsContent: true
+  tabs: [
+    {
+      tabProperties: { tabId: 'tab-a', title: 'Main' },
+      documentTab: {
+        body: {
+          content: [
+            {
+              startIndex: 1,
+              endIndex: 20,
+              paragraph: {
+                paragraphStyle: { namedStyleType: 'HEADING_1' },
+                elements: [{ textRun: { content: 'Sprint Tasks\n' } }],
+              },
+            },
+            {
+              startIndex: 20,
+              endIndex: 80,
+              table: {
+                tableRows: [
+                  {
+                    tableCells: [
+                      {
+                        startIndex: 25,
+                        endIndex: 35,
+                        content: [{ paragraph: { elements: [{ textRun: { content: 'No.\n' } }] } }],
+                      },
+                      {
+                        startIndex: 35,
+                        endIndex: 50,
+                        content: [
+                          { paragraph: { elements: [{ textRun: { content: 'Task\n' } }] } },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    },
+    {
+      tabProperties: { tabId: 'tab-b', title: 'Notes' },
+      documentTab: {
+        body: {
+          content: [
+            {
+              startIndex: 1,
+              endIndex: 15,
+              table: {
+                tableRows: [
+                  {
+                    tableCells: [
+                      {
+                        startIndex: 5,
+                        endIndex: 14,
+                        content: [
+                          { paragraph: { elements: [{ textRun: { content: 'Note\n' } }] } },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    },
+  ],
+} as any;
+
 const mockDocument = {
   body: {
     content: [
@@ -165,5 +242,65 @@ describe('structureHelpers', () => {
         tableIdFollowing: undefined,
       },
     ]);
+  });
+});
+
+// ── Tabbed document tests ────────────────────────────────────────────────────
+// These tests guard the path that was broken before the field mask fix:
+// when tabId is provided, documents.get returns tabs[].documentTab.body rather
+// than doc.body. All structure helpers must read from the correct source.
+describe('structureHelpers — tabbed document path', () => {
+  it('extractDocumentTables scopes to the specified tab', () => {
+    const tabATables = extractDocumentTables(mockTabbedDocument, 'tab-a');
+    expect(tabATables).toHaveLength(1);
+    expect(tabATables[0].tableId).toBe('table:tab-a:0');
+    expect(tabATables[0].rowCount).toBe(1);
+    expect(tabATables[0].columnCount).toBe(2);
+    expect(tabATables[0].startIndex).toBe(20);
+
+    const tabBTables = extractDocumentTables(mockTabbedDocument, 'tab-b');
+    expect(tabBTables).toHaveLength(1);
+    expect(tabBTables[0].tableId).toBe('table:tab-b:0');
+    expect(tabBTables[0].columnCount).toBe(1);
+  });
+
+  it('extractDocumentTables does NOT bleed across tabs', () => {
+    // Tab A has a 2-column table; tab B has a 1-column table.
+    // Reading tab B should never return the tab A table.
+    const tabBTables = extractDocumentTables(mockTabbedDocument, 'tab-b');
+    expect(tabBTables.every((t) => t.tableId.startsWith('table:tab-b:'))).toBe(true);
+    expect(tabBTables.find((t) => t.columnCount === 2)).toBeUndefined();
+  });
+
+  it('getTableById returns null for an ID from a different tab', () => {
+    // table:tab-a:0 should not be found when querying tab-b
+    const result = getTableById(mockTabbedDocument, 'table:tab-a:0', 'tab-b');
+    expect(result).toBeNull();
+  });
+
+  it('getTableById finds the table when the correct tabId is provided', () => {
+    const result = getTableById(mockTabbedDocument, 'table:tab-a:0', 'tab-a');
+    expect(result).not.toBeNull();
+    expect(result!.tableId).toBe('table:tab-a:0');
+  });
+
+  it('findHeadings reads from the correct tab', () => {
+    const sections = findHeadings(mockTabbedDocument, ['Sprint Tasks'], 'tab-a');
+    expect(sections).toHaveLength(1);
+    expect(sections[0].headingText).toBe('Sprint Tasks');
+    expect(sections[0].headingLevel).toBe('HEADING_1');
+  });
+
+  it('findHeadings returns empty for a heading that only exists in another tab', () => {
+    // 'Sprint Tasks' is in tab-a only — should not be found when scoped to tab-b
+    const sections = findHeadings(mockTabbedDocument, ['Sprint Tasks'], 'tab-b');
+    expect(sections).toHaveLength(0);
+  });
+
+  it('extractDocumentTables returns empty array for an unknown tabId', () => {
+    // Before the fix, an unknown tabId would silently fall back to doc.body
+    // or throw. Now getContentSource returns [] for a missing tab.
+    const tables = extractDocumentTables(mockTabbedDocument, 'tab-does-not-exist');
+    expect(tables).toHaveLength(0);
   });
 });
