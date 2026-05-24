@@ -371,6 +371,21 @@ describe('downloadFile integration', () => {
     });
   });
 
+  describe('absolute path outside CWD', () => {
+    it('should accept absolute savePath outside CWD', async () => {
+      createMockDrive();
+
+      const result = await toolExecute(
+        { fileId: 'f1', savePath: '/tmp/test-downloads/report.pdf' },
+        { log: mockLog }
+      );
+
+      const parsed = JSON.parse(result);
+      expect(parsed.savedTo).toBe('/tmp/test-downloads/report.pdf');
+      expect(mockMkdirSync).toHaveBeenCalledWith('/tmp/test-downloads', { recursive: true });
+    });
+  });
+
   describe('unsupported workspace type', () => {
     it('should throw UserError for types without export defaults', async () => {
       createMockDrive({
