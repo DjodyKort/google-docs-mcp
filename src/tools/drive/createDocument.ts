@@ -54,7 +54,13 @@ export function register(server: FastMCP) {
 
         const document = response.data;
 
-        // Add initial content if provided
+        // Add initial content if provided.
+        // NOTE: the Drive file already exists at this point, so the doc is created
+        // *empty* and content is a second API call. If that second call fails we must
+        // NOT report success — doing so silently leaves an empty document. Surface the
+        // failure loudly, including the doc id/url so the caller can append to the
+        // existing doc instead of creating a duplicate.
+        let contentInserted = false;
         if (args.initialContent) {
           try {
             const docs = await getDocsClient();
@@ -79,8 +85,16 @@ export function register(server: FastMCP) {
               });
               log.info(formatInsertResult(result));
             }
+            contentInserted = true;
           } catch (contentError: any) {
-            log.warn(`Document created but failed to add initial content: ${contentError.message}`);
+            const detail = contentError?.message || String(contentError);
+            log.error(`Document created but failed to add initial content: ${detail}`);
+            throw new UserError(
+              `Document "${document.name}" was created (id: ${document.id}, url: ${document.webViewLink}) ` +
+                `but inserting the initial content FAILED, so it is currently EMPTY. ` +
+                `Append the content to this existing document (do not create a new one). ` +
+                `Underlying error: ${detail}`
+            );
           }
         }
 
@@ -89,11 +103,14 @@ export function register(server: FastMCP) {
             id: document.id,
             name: document.name,
             url: document.webViewLink,
+            contentInserted,
           },
           null,
           2
         );
       } catch (error: any) {
+        // Pass through UserErrors we raised above (e.g. created-but-empty) unchanged.
+        if (error instanceof UserError) throw error;
         log.error(`Error creating document: ${error.message || error}`);
         if (error.code === 404)
           throw new UserError('Parent folder not found. Check the folder ID.');
