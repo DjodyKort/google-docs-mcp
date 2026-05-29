@@ -46,7 +46,6 @@ function isWorkspaceMimeType(mime: string): boolean {
   return mime.startsWith('application/vnd.google-apps.');
 }
 
-
 const DownloadFileParameters = z.strictObject({
   fileId: z.string().describe('The file ID from a Google Drive URL or previous tool result.'),
   savePath: z
