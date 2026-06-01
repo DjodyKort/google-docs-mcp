@@ -17,9 +17,7 @@ export function register(server: FastMCP) {
         ),
       range: z
         .string()
-        .describe(
-          'A1 notation cell or range to attach the note to, e.g. "Sheet1!F94" or "F94".'
-        ),
+        .describe('A1 notation cell or range to attach the note to, e.g. "Sheet1!F94" or "F94".'),
       content: z.string().min(1).describe('The note content to attach to the target cell/range.'),
     }),
     execute: async (args, { log }) => {

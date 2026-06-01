@@ -30,12 +30,12 @@ Tools for reading, writing, and managing Google Spreadsheets, including cell dat
 
 ## Comments
 
-| Tool                   | Description                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `createSheetsComment`  | Creates a new spreadsheet comment, optionally with a direct cell/range link    |
-| `createSheetsCellNote` | Creates or replaces a native cell note attached to a cell or range             |
-| `listSheetsComments`   | Lists spreadsheet comments with optional sheet/row/cell/range filters          |
-| `getSheetsComment`     | Gets a specific spreadsheet comment thread                                     |
-| `replyToSheetsComment` | Adds a reply to an existing spreadsheet comment thread                         |
-| `resolveSheetsComment` | Marks a spreadsheet comment as resolved                                        |
-| `deleteSheetsComment`  | Permanently deletes a spreadsheet comment thread                               |
+| Tool                   | Description                                                                 |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `createSheetsComment`  | Creates a new spreadsheet comment, optionally with a direct cell/range link |
+| `createSheetsCellNote` | Creates or replaces a native cell note attached to a cell or range          |
+| `listSheetsComments`   | Lists spreadsheet comments with optional sheet/row/cell/range filters       |
+| `getSheetsComment`     | Gets a specific spreadsheet comment thread                                  |
+| `replyToSheetsComment` | Adds a reply to an existing spreadsheet comment thread                      |
+| `resolveSheetsComment` | Marks a spreadsheet comment as resolved                                     |
+| `deleteSheetsComment`  | Permanently deletes a spreadsheet comment thread                            |

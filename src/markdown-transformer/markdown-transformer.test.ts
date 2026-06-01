@@ -511,9 +511,11 @@ describe('Markdown to Docs Conversion', () => {
 
   describe('Tables', () => {
     it('should convert a markdown table into Docs table requests', () => {
-      const markdown = ['| Task ID | Task Name |', '| --- | --- |', '| SHIN-1 | Mapping check |'].join(
-        '\n'
-      );
+      const markdown = [
+        '| Task ID | Task Name |',
+        '| --- | --- |',
+        '| SHIN-1 | Mapping check |',
+      ].join('\n');
       const requests = convertMarkdownToRequests(markdown, 1);
 
       const tableReq = requests.find((r) => r.insertTable);
@@ -521,9 +523,7 @@ describe('Markdown to Docs Conversion', () => {
       expect(tableReq!.insertTable!.rows).toBe(2);
       expect(tableReq!.insertTable!.columns).toBe(2);
 
-      const insertedTexts = requests
-        .filter((r) => r.insertText)
-        .map((r) => r.insertText!.text);
+      const insertedTexts = requests.filter((r) => r.insertText).map((r) => r.insertText!.text);
       expect(insertedTexts).toContain('Task ID');
       expect(insertedTexts).toContain('Task Name');
       expect(insertedTexts).toContain('SHIN-1');

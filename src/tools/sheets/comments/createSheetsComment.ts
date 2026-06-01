@@ -42,18 +42,21 @@ const CreateSheetsCommentParameters = z
     message: 'Provide either cell or range, not both.',
     path: ['range'],
   })
-  .refine((data) => {
-    if (!data.cell && !data.range) {
-      return true;
+  .refine(
+    (data) => {
+      if (!data.cell && !data.range) {
+        return true;
+      }
+      if (data.sheetName) {
+        return true;
+      }
+      return hasSheetPrefix(data.cell ?? data.range ?? '');
+    },
+    {
+      message: 'sheetName is required when cell or range does not include a sheet prefix.',
+      path: ['sheetName'],
     }
-    if (data.sheetName) {
-      return true;
-    }
-    return hasSheetPrefix(data.cell ?? data.range ?? '');
-  }, {
-    message: 'sheetName is required when cell or range does not include a sheet prefix.',
-    path: ['sheetName'],
-  });
+  );
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -244,7 +247,12 @@ async function readRangeText(
   }
 
   const lines = values
-    .map((row) => row.map((cell) => String(cell)).join('\t').trimEnd())
+    .map((row) =>
+      row
+        .map((cell) => String(cell))
+        .join('\t')
+        .trimEnd()
+    )
     .filter((line) => line.length > 0);
 
   return lines.length > 0 ? lines.join('\n') : undefined;
