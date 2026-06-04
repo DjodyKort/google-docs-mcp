@@ -22,20 +22,20 @@ const CreateSheetsCommentParameters = z
       .string()
       .optional()
       .describe(
-        'Optional target cell in A1 notation (for example "B3" or "Sheet1!B3"). Creates an anchored comment request for that cell.'
+        'Optional target cell in A1 notation (for example "B3" or "Sheet1!B3"). Used to quote the cell content and build a click-through link to that cell.'
       ),
     range: z
       .string()
       .optional()
       .describe(
-        'Optional target range in A1 notation (for example "B3:D5" or "Sheet1!B3:D5"). The anchor uses the top-left cell of the range.'
+        'Optional target range in A1 notation (for example "B3:D5" or "Sheet1!B3:D5"). The click-through link targets the full range.'
       ),
     includeCellLink: z
       .boolean()
       .optional()
-      .default(false)
+      .default(true)
       .describe(
-        'If true, appends a direct Google Sheets URL with gid and range to the comment content so users can click through to the target cell/range even when the Sheets UI treats API-created comments as unanchored.'
+        'When a cell or range is given, appends a direct Google Sheets click-through URL (with gid and range) to the comment content so users can jump to the target cell/range. Defaults to true because the Drive API cannot natively anchor spreadsheet comments in the Sheets UI. Has no effect when no cell/range is provided.'
       ),
   })
   .refine((data) => !(data.cell && data.range), {
@@ -62,7 +62,7 @@ export function register(server: FastMCP) {
   server.addTool({
     name: 'createSheetsComment',
     description:
-      'Creates a new comment in a Google Spreadsheet. You can optionally target a specific cell or range, but Google Sheets UI may still display API-created comments as unanchored due to a Drive API limitation.',
+      'Creates a new comment in a Google Spreadsheet. When you target a specific cell or range, a click-through link to that location is added to the comment body by default (includeCellLink), letting users jump to the cell. Note: the Drive API cannot natively anchor spreadsheet comments to a cell in the Sheets UI, so the comment itself appears under "All comments" — the click-through link is the supported way to navigate to the target.',
     parameters: CreateSheetsCommentParameters,
     execute: async (args, { log }) => {
       log.info(`Creating spreadsheet comment in ${args.spreadsheetId}`);
@@ -72,7 +72,6 @@ export function register(server: FastMCP) {
         const drive = google.drive({ version: 'v3', auth: authClient });
         const sheets = await getSheetsClient();
 
-        let anchor: string | undefined;
         let quotedText: string | undefined;
         let locationLabel: string | undefined;
         let cellUrl: string | undefined;
@@ -85,21 +84,6 @@ export function register(server: FastMCP) {
             parsedLocation.sheetName
           );
 
-          anchor = JSON.stringify({
-            r: 'head',
-            a: [
-              {
-                sht: {
-                  sid: sheetId,
-                  rng: {
-                    r: parsedLocation.row,
-                    c: parsedLocation.col,
-                  },
-                },
-              },
-            ],
-          });
-
           quotedText = await readRangeText(
             sheets,
             args.spreadsheetId,
@@ -111,15 +95,14 @@ export function register(server: FastMCP) {
 
         const content =
           args.includeCellLink && cellUrl
-            ? `${args.content}\n\nCell link: ${cellUrl}`
+            ? `${args.content}\n\n→ ${locationLabel}: ${cellUrl}`
             : args.content;
 
         const response = await drive.comments.create({
           fileId: args.spreadsheetId,
-          fields: 'id,anchor,quotedFileContent,createdTime',
+          fields: 'id,quotedFileContent,createdTime',
           requestBody: {
             content,
-            ...(anchor ? { anchor } : {}),
             ...(quotedText
               ? {
                   quotedFileContent: {
@@ -131,11 +114,16 @@ export function register(server: FastMCP) {
           },
         });
 
-        const locationNote = locationLabel ? ` Requested anchor: ${locationLabel}.` : '';
+        const linkNote =
+          args.includeCellLink && cellUrl
+            ? ` A click-through link to ${locationLabel} was added to the comment body so users can jump to the target cell.`
+            : locationLabel
+              ? ` Target location: ${locationLabel}.`
+              : '';
         return (
           `Comment added successfully. Comment ID: ${response.data.id}.` +
-          locationNote +
-          ' Note: Google Sheets UI may still show API-created spreadsheet comments as unanchored.'
+          linkNote +
+          ' Note: the Drive API cannot natively anchor spreadsheet comments to a cell in the Sheets UI; use the click-through link to navigate to the location.'
         );
       } catch (error: any) {
         log.error(`Error creating sheets comment: ${error.message || error}`);
@@ -158,7 +146,7 @@ function hasSheetPrefix(value: string): boolean {
 function parseLocation(
   value: string,
   fallbackSheetName?: string
-): { sheetName: string; a1Range: string; row: number; col: number } {
+): { sheetName: string; a1Range: string } {
   const bangIndex = value.lastIndexOf('!');
   const rawSheetName =
     bangIndex >= 0 ? unquoteSheetName(value.slice(0, bangIndex)) : fallbackSheetName;
@@ -168,34 +156,21 @@ function parseLocation(
     throw new UserError('Could not determine the target sheet name for the spreadsheet comment.');
   }
 
+  // Validate the start cell is a well-formed A1 reference (fail early on bad input).
   const startCell = a1Range.split(':')[0];
-  const { row, col } = a1ToRowCol(startCell);
+  validateA1Cell(startCell);
 
   return {
     sheetName: rawSheetName,
     a1Range,
-    row,
-    col,
   };
 }
 
-function a1ToRowCol(a1: string): { row: number; col: number } {
+function validateA1Cell(a1: string): void {
   const match = a1.trim().match(/^([A-Za-z]+)(\d+)$/);
   if (!match) {
     throw new UserError(`Invalid A1 cell reference: ${a1}`);
   }
-
-  const colStr = match[1].toUpperCase();
-  let col = 0;
-
-  for (let i = 0; i < colStr.length; i++) {
-    col = col * 26 + (colStr.charCodeAt(i) - 64);
-  }
-
-  return {
-    row: parseInt(match[2], 10) - 1,
-    col: col - 1,
-  };
 }
 
 function unquoteSheetName(sheetName: string): string {
