@@ -3,6 +3,7 @@ import { UserError } from 'fastmcp';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import { getAuthClient, getSheetsClient } from '../../../clients.js';
+import { extractCommentLocation, a1ToRowCol, rowColToA1 } from './commentAnchor.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -102,7 +103,7 @@ export function register(server: FastMCP) {
         const result = comments
           .filter((c) => {
             if (!args.includeResolved && c.resolved) return false;
-            const cellInfo = c.anchor ? parseSheetsAnchor(c.anchor) : null;
+            const cellInfo = extractCommentLocation(c);
 
             if (args.sheetName && cellInfo) {
               const resolvedName = sheetGidMap[String(cellInfo.sheetId)];
@@ -122,13 +123,15 @@ export function register(server: FastMCP) {
             if (cellFilter) {
               return cellInfo.row === cellFilter.row && cellInfo.col === cellFilter.col;
             }
+            // Guard: a malformed cell arg yields a null cellFilter; fall through
+            // means no cell constraint applied, which matches prior behavior.
             if (rowSet) {
               return rowSet.has(cellInfo.row);
             }
             return true;
           })
           .map((comment: any) => {
-            const cellInfo = comment.anchor ? parseSheetsAnchor(comment.anchor) : null;
+            const cellInfo = extractCommentLocation(comment);
             let cellRef: string | null = null;
             let sheetTitle: string | null = null;
 
@@ -164,49 +167,6 @@ export function register(server: FastMCP) {
   });
 }
 
-function parseSheetsAnchor(
-  anchorStr: string
-): { sheetId: number; row: number; col: number } | null {
-  try {
-    const anchor = JSON.parse(anchorStr);
-    const actions = anchor.a;
-    if (!actions || !Array.isArray(actions)) return null;
-    for (const action of actions) {
-      if (action.sht) {
-        const sid = action.sht.sid;
-        const rng = action.sht.rng;
-        if (sid !== undefined && rng) {
-          return { sheetId: sid, row: rng.r || 0, col: rng.c || 0 };
-        }
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function rowColToA1(row: number, col: number): string {
-  let colStr = '';
-  let c = col;
-  do {
-    colStr = String.fromCharCode(65 + (c % 26)) + colStr;
-    c = Math.floor(c / 26) - 1;
-  } while (c >= 0);
-  return `${colStr}${row + 1}`;
-}
-
-function a1ToRowCol(a1: string): { row: number; col: number } {
-  const match = a1.match(/^([A-Za-z]+)(\d+)$/);
-  if (!match) return { row: 0, col: 0 };
-  const colStr = match[1].toUpperCase();
-  let col = 0;
-  for (let i = 0; i < colStr.length; i++) {
-    col = col * 26 + (colStr.charCodeAt(i) - 64);
-  }
-  return { row: parseInt(match[2], 10) - 1, col: col - 1 };
-}
-
 function parseA1Range(range: string): {
   startRow: number;
   endRow: number;
@@ -230,7 +190,7 @@ function parseA1Range(range: string): {
       return { row: parseInt(s, 10) - 1, col: null };
     }
     const rc = a1ToRowCol(s);
-    return { row: rc.row, col: rc.col };
+    return rc ? { row: rc.row, col: rc.col } : { row: null, col: null };
   };
 
   if (parts.length === 1) {

@@ -3,6 +3,7 @@ import { UserError } from 'fastmcp';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import { getAuthClient } from '../../../clients.js';
+import { extractCommentLocation, rowColToA1 } from './commentAnchor.js';
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -31,7 +32,7 @@ export function register(server: FastMCP) {
         });
 
         const comment = response.data;
-        const cellInfo = comment.anchor ? parseSheetsAnchor(comment.anchor) : null;
+        const cellInfo = extractCommentLocation(comment);
 
         return JSON.stringify(
           {
@@ -59,36 +60,4 @@ export function register(server: FastMCP) {
       }
     },
   });
-}
-
-function parseSheetsAnchor(
-  anchorStr: string
-): { sheetId: number; row: number; col: number } | null {
-  try {
-    const anchor = JSON.parse(anchorStr);
-    const actions = anchor.a;
-    if (!actions || !Array.isArray(actions)) return null;
-    for (const action of actions) {
-      if (action.sht) {
-        const sid = action.sht.sid;
-        const rng = action.sht.rng;
-        if (sid !== undefined && rng) {
-          return { sheetId: sid, row: rng.r || 0, col: rng.c || 0 };
-        }
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function rowColToA1(row: number, col: number): string {
-  let colStr = '';
-  let c = col;
-  do {
-    colStr = String.fromCharCode(65 + (c % 26)) + colStr;
-    c = Math.floor(c / 26) - 1;
-  } while (c >= 0);
-  return `${colStr}${row + 1}`;
 }
