@@ -26,6 +26,7 @@ import { wrapServerForRemote } from './remoteWrapper.js';
 import { registerLandingPage } from './landingPage.js';
 import { registerDownloadRoute } from './downloadProxy.js';
 import { FirestoreTokenStorage } from './firestoreTokenStorage.js';
+import { parseStatelessFlag } from './config.js';
 import { logger } from './logger.js';
 
 // --- Auth subcommand ---
@@ -218,6 +219,7 @@ try {
       httpStream: {
         port,
         host: '0.0.0.0',
+        stateless: parseStatelessFlag(),
       },
     });
 

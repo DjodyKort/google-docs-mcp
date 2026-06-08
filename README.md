@@ -332,6 +332,7 @@ Visit the server root URL (`/`) for setup instructions and a ready-to-copy clien
 | `JWT_SIGNING_KEY`      | Fixed signing key so tokens survive restarts (auto-generated if not set)                                            |
 | `REFRESH_TOKEN_TTL`    | Refresh token lifetime in seconds (default: `2592000` / 30 days)                                                    |
 | `GCLOUD_PROJECT`       | GCP project ID for Firestore (required when `TOKEN_STORE=firestore`)                                                |
+| `MCP_STATELESS`        | Set to `true` for serverless deployments (Cloud Run, etc.) — disables session tracking to survive scale-to-zero     |
 
 ### Setup
 
@@ -355,6 +356,7 @@ gcloud run deploy google-docs-mcp \
 
 - By default, OAuth sessions are stored in memory and lost on restart
 - For production, set `TOKEN_STORE=firestore` and `JWT_SIGNING_KEY` for persistent auth across deploys and cold starts
+- On serverless platforms (Cloud Run, etc.), set `MCP_STATELESS=true` — MCP sessions are held in memory, so scale-to-zero wipes them. Stateless mode disables session tracking entirely; each request authenticates independently via the JWT/Firestore token flow
 - `ALLOWED_DOMAINS` restricts access to specific Google Workspace domains
 - Access tokens refresh automatically; inactive sessions expire after 30 days
 - Users can revoke access at any time via [Google Account permissions](https://myaccount.google.com/permissions)
