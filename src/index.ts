@@ -27,6 +27,7 @@ import { registerLandingPage } from './landingPage.js';
 import { registerDownloadRoute } from './downloadProxy.js';
 import { FirestoreTokenStorage } from './firestoreTokenStorage.js';
 import { parseStatelessFlag } from './config.js';
+import { enableUpstreamOfflineAccess } from './upstreamAuth.js';
 import { logger } from './logger.js';
 
 // --- Auth subcommand ---
@@ -157,6 +158,8 @@ if (oauthProxy) {
     }
     return origIssue(clientId, upstreamTokens);
   };
+
+  enableUpstreamOfflineAccess(oauthProxy);
 }
 
 const server = new FastMCP({
