@@ -1,6 +1,13 @@
 import type { FastMCP } from 'fastmcp';
-import { describe, expect, it } from 'vitest';
-import { parseEnabledToolGroups, registerAllTools, TOOL_GROUPS } from './index.js';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  DEFAULT_TOOL_GROUPS,
+  OPT_IN_SUBGROUP_NAMES,
+  OPT_IN_SUBGROUPS,
+  parseEnabledToolGroups,
+  registerAllTools,
+  TOOL_GROUPS,
+} from './index.js';
 
 type ToolConfig = Parameters<FastMCP['addTool']>[0];
 
@@ -17,21 +24,96 @@ function captureTools(groups: Parameters<typeof registerAllTools>[1]) {
 }
 
 describe('parseEnabledToolGroups', () => {
-  it('defaults to every tool group', () => {
-    expect(parseEnabledToolGroups(undefined)).toEqual([...TOOL_GROUPS]);
-    expect(parseEnabledToolGroups('  ')).toEqual([...TOOL_GROUPS]);
+  it('defaults to the default-on groups only', () => {
+    expect(parseEnabledToolGroups(undefined)).toEqual([...DEFAULT_TOOL_GROUPS]);
+    expect(parseEnabledToolGroups('  ')).toEqual([...DEFAULT_TOOL_GROUPS]);
+    expect(DEFAULT_TOOL_GROUPS).not.toContain('script');
+    for (const group of OPT_IN_SUBGROUP_NAMES) expect(DEFAULT_TOOL_GROUPS).not.toContain(group);
   });
 
   it('normalizes comma-separated tool group names in default order', () => {
     expect(parseEnabledToolGroups('sheets, docs, sheets')).toEqual(['docs', 'sheets']);
   });
 
-  it('treats all as the default full registration', () => {
+  it('treats all as every group including opt-in ones', () => {
     expect(parseEnabledToolGroups('all')).toEqual([...TOOL_GROUPS]);
+    expect(parseEnabledToolGroups('docs,all')).toEqual([...TOOL_GROUPS]);
   });
 
-  it('rejects unknown tool groups', () => {
-    expect(() => parseEnabledToolGroups('docs,unknown')).toThrow('Unknown MCP_TOOL_GROUPS');
+  it('selects opt-in groups explicitly and supports the default keyword', () => {
+    expect(parseEnabledToolGroups('script')).toEqual(['script']);
+    expect(parseEnabledToolGroups('default,script')).toEqual([
+      'docs',
+      'drive',
+      'sheets',
+      'utils',
+      'gmail',
+      'calendar',
+      'script',
+    ]);
+  });
+
+  it('warns on stderr and ignores unknown groups', () => {
+    const write = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      expect(parseEnabledToolGroups('docs,unknown')).toEqual(['docs']);
+      expect(write).toHaveBeenCalledWith(expect.stringContaining('unknown'));
+      write.mockClear();
+      expect(parseEnabledToolGroups('nonsense')).toEqual([...DEFAULT_TOOL_GROUPS]);
+      expect(write).toHaveBeenCalledTimes(1);
+    } finally {
+      write.mockRestore();
+    }
+  });
+});
+
+describe('default tool set', () => {
+  const defaults = captureTools([...DEFAULT_TOOL_GROUPS]);
+  const everything = captureTools([...TOOL_GROUPS]);
+
+  it('keeps everyday tools and drops opt-in families', () => {
+    for (const name of [
+      'readDocument',
+      'applyTextStyle',
+      'listSpreadsheets',
+      'sendEmail',
+      'listEvents',
+      'listMessages',
+      'searchDriveFiles',
+      'authStatus',
+    ]) {
+      expect(defaults).toContain(name);
+    }
+    for (const name of [
+      'createAppsScriptProject',
+      'setFilePermission',
+      'triageInbox',
+      'insertChart',
+      'addComment',
+      'createHeader',
+      'convertFile',
+    ]) {
+      expect(defaults).not.toContain(name);
+    }
+  });
+
+  it('all restores every tool and every opt-in tool belongs to a real tool', () => {
+    for (const group of OPT_IN_SUBGROUP_NAMES) {
+      for (const name of OPT_IN_SUBGROUPS[group])
+        expect(everything, `${group}:${name}`).toContain(name);
+    }
+    expect(everything.length).toBeGreaterThan(defaults.length);
+  });
+
+  it('registers an opt-in group on its own, without its parent group', () => {
+    expect(captureTools(['drive-permissions']).sort()).toEqual(['authStatus', 'setFilePermission']);
+    expect(captureTools(['comments']).sort()).toContain('addComment');
+    expect(captureTools(['comments'])).toContain('createSheetsComment');
+    expect(captureTools(['comments'])).not.toContain('readDocument');
+  });
+
+  it('keeps tool names unique in the full set', () => {
+    expect(everything.filter((n, i) => everything.indexOf(n) !== i)).toEqual([]);
   });
 });
 

@@ -359,21 +359,45 @@ Visit the server root URL (`/`) for setup instructions and a ready-to-copy clien
 
 ### Environment Variables
 
-| Variable                         | Description                                                                                                                   |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `MCP_TRANSPORT`                  | Set to `httpStream` to enable remote mode (default: `stdio`)                                                                  |
-| `BASE_URL`                       | Public URL of the deployed server (required for OAuth redirects)                                                              |
-| `GOOGLE_CLIENT_ID`               | OAuth client ID (Web application type)                                                                                        |
-| `GOOGLE_CLIENT_SECRET`           | OAuth client secret                                                                                                           |
-| `MCP_TOOL_GROUPS`                | Optional comma-separated tool groups to register: `docs`, `drive`, `sheets`, `utils`, `gmail`, `calendar`, `script`, or `all` |
-| `ALLOWED_DOMAINS`                | Comma-separated list of allowed Google Workspace domains (optional)                                                           |
-| `PORT`                           | HTTP port (default: `8080`)                                                                                                   |
-| `TOKEN_STORE`                    | Set to `firestore` for persistent token storage (default: in-memory)                                                          |
-| `JWT_SIGNING_KEY`                | Fixed signing key so tokens survive restarts (auto-generated if not set)                                                      |
-| `REFRESH_TOKEN_TTL`              | Refresh token lifetime in seconds (default: `2592000` / 30 days)                                                              |
-| `GCLOUD_PROJECT`                 | GCP project ID for Firestore (required when `TOKEN_STORE=firestore`)                                                          |
-| `MCP_STATELESS`                  | Set to `true` for serverless deployments (Cloud Run, etc.) — disables session tracking to survive scale-to-zero               |
-| `GOOGLE_DOCS_MCP_DOWNLOAD_ROOTS` | Directories `downloadFile` may write to in stdio mode, delimited by `:` (`;` on Windows). Defaults to the working directory   |
+| Variable                         | Description                                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `MCP_TRANSPORT`                  | Set to `httpStream` to enable remote mode (default: `stdio`)                                                                   |
+| `BASE_URL`                       | Public URL of the deployed server (required for OAuth redirects)                                                               |
+| `GOOGLE_CLIENT_ID`               | OAuth client ID (Web application type)                                                                                         |
+| `GOOGLE_CLIENT_SECRET`           | OAuth client secret                                                                                                            |
+| `MCP_TOOL_GROUPS`                | Optional comma-separated tool groups to register (see [Tool groups](#tool-groups)); unset = default groups, `all` = everything |
+| `ALLOWED_DOMAINS`                | Comma-separated list of allowed Google Workspace domains (optional)                                                            |
+| `PORT`                           | HTTP port (default: `8080`)                                                                                                    |
+| `TOKEN_STORE`                    | Set to `firestore` for persistent token storage (default: in-memory)                                                           |
+| `JWT_SIGNING_KEY`                | Fixed signing key so tokens survive restarts (auto-generated if not set)                                                       |
+| `REFRESH_TOKEN_TTL`              | Refresh token lifetime in seconds (default: `2592000` / 30 days)                                                               |
+| `GCLOUD_PROJECT`                 | GCP project ID for Firestore (required when `TOKEN_STORE=firestore`)                                                           |
+| `MCP_STATELESS`                  | Set to `true` for serverless deployments (Cloud Run, etc.) — disables session tracking to survive scale-to-zero                |
+| `GOOGLE_DOCS_MCP_DOWNLOAD_ROOTS` | Directories `downloadFile` may write to in stdio mode, delimited by `:` (`;` on Windows). Defaults to the working directory    |
+
+### Tool groups
+
+Every tool costs `tools/list` tokens in each MCP client session, so heavy or rarely used families are opt-in. With `MCP_TOOL_GROUPS` unset, only the default groups are registered (about 28k schema tokens instead of 43k). Setting `MCP_TOOL_GROUPS` registers exactly the groups you name; `default` expands to the default set and `all` registers everything. Unknown names are ignored with a warning on stderr. `authStatus` is always registered.
+
+| Group               | Default | Contents                                                                                                        |
+| ------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
+| `docs`              | on      | Core Docs read/write, text and table edits, formatting, tabs, images                                            |
+| `drive`             | on      | List, search, create, move, copy, rename, delete, download, upload, export Docs/Sheets                          |
+| `sheets`            | on      | Read/write, formatting, tables, sheet management                                                                |
+| `utils`             | on      | Markdown to Google Docs tools                                                                                   |
+| `gmail`             | on      | List/get/send messages, trash, labels                                                                           |
+| `calendar`          | on      | Calendar events                                                                                                 |
+| `script`            | off     | Apps Script projects                                                                                            |
+| `docs-advanced`     | off     | Headers, footers, footnotes, named ranges, smart chips, section breaks and styles, document style, cloneTable   |
+| `comments`          | off     | Docs and Sheets comments and cell notes                                                                         |
+| `sheets-advanced`   | off     | Charts, conditional formatting, protected ranges, row groups, dropdown validation, copyFormatting, cell borders |
+| `drive-permissions` | off     | `setFilePermission`                                                                                             |
+| `drive-convert`     | off     | `convertFile`, `uploadAndConvert`, `listSupportedConversions`, `exportPresentation`, `exportDrawing`            |
+| `gmail-extras`      | off     | Drafts (create/list/get/update/send/delete) and `triageInbox`                                                   |
+
+Examples: `MCP_TOOL_GROUPS=default,script,comments` adds two groups to the defaults; `MCP_TOOL_GROUPS=all` restores the previous full tool set.
+
+A token budget test (`src/tools/tokenBudget.test.ts`) estimates `tools/list` size as characters / 4 per tool and fails when any group grows more than 5% over `tokenBudget.json`. After an intentional change, run `npm run budget:update` and commit the regenerated file.
 
 ### Setup
 

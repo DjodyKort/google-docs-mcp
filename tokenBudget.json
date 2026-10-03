@@ -1,0 +1,21 @@
+{
+  "heuristic": "ceil(JSON.stringify({name, description, inputSchema, annotations}).length / 4)",
+  "tolerancePercent": 5,
+  "groups": {
+    "docs": 14245,
+    "drive": 4519,
+    "sheets": 5679,
+    "utils": 959,
+    "gmail": 1144,
+    "calendar": 1675,
+    "script": 930,
+    "docs-advanced": 4901,
+    "comments": 2463,
+    "sheets-advanced": 3427,
+    "drive-permissions": 376,
+    "drive-convert": 1381,
+    "gmail-extras": 1350
+  },
+  "default": 28221,
+  "all": 43049
+}

@@ -15,6 +15,7 @@
     "auth": "node ./dist/index.js auth",
     "build": "tsc",
     "test": "vitest run",
+    "budget:update": "tsx scripts/updateTokenBudget.ts",
     "test:live:docs": "vitest run src/tools/docs/cloneTable.live.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
