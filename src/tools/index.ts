@@ -94,11 +94,7 @@ export const TOOL_GROUPS = [...CORE_TOOL_GROUPS, ...OPT_IN_SUBGROUP_NAMES] as co
 
 export type ToolGroup = (typeof TOOL_GROUPS)[number];
 
-const DEFAULT_OFF = new Set<ToolGroup>(['script', ...OPT_IN_SUBGROUP_NAMES]);
-
-export const DEFAULT_TOOL_GROUPS: readonly ToolGroup[] = TOOL_GROUPS.filter(
-  (group) => !DEFAULT_OFF.has(group)
-);
+export const DEFAULT_TOOL_GROUPS: readonly ToolGroup[] = TOOL_GROUPS;
 
 const TOOL_GROUP_SET = new Set<string>(TOOL_GROUPS);
 

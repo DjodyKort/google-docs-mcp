@@ -377,7 +377,7 @@ Visit the server root URL (`/`) for setup instructions and a ready-to-copy clien
 
 ### Tool groups
 
-Every tool costs `tools/list` tokens in each MCP client session, so heavy or rarely used families are opt-in. With `MCP_TOOL_GROUPS` unset, only the default groups are registered (about 28k schema tokens instead of 43k). Setting `MCP_TOOL_GROUPS` registers exactly the groups you name; `default` expands to the default set and `all` registers everything. Unknown names are ignored with a warning on stderr. `authStatus` is always registered.
+Every tool costs `tools/list` tokens in each MCP client session, so you can trim heavy or rarely used families per client. With `MCP_TOOL_GROUPS` unset, every group is registered (about 43k schema tokens). Setting `MCP_TOOL_GROUPS` registers exactly the groups you name; `default` and `all` both expand to every group. Unknown names are ignored with a warning on stderr. `authStatus` is always registered.
 
 | Group               | Default | Contents                                                                                                        |
 | ------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
@@ -387,15 +387,15 @@ Every tool costs `tools/list` tokens in each MCP client session, so heavy or rar
 | `utils`             | on      | Markdown to Google Docs tools                                                                                   |
 | `gmail`             | on      | List/get/send messages, trash, labels                                                                           |
 | `calendar`          | on      | Calendar events                                                                                                 |
-| `script`            | off     | Apps Script projects                                                                                            |
-| `docs-advanced`     | off     | Headers, footers, footnotes, named ranges, smart chips, section breaks and styles, document style, cloneTable   |
-| `comments`          | off     | Docs and Sheets comments and cell notes                                                                         |
-| `sheets-advanced`   | off     | Charts, conditional formatting, protected ranges, row groups, dropdown validation, copyFormatting, cell borders |
-| `drive-permissions` | off     | `setFilePermission`                                                                                             |
-| `drive-convert`     | off     | `convertFile`, `uploadAndConvert`, `listSupportedConversions`, `exportPresentation`, `exportDrawing`            |
-| `gmail-extras`      | off     | Drafts (create/list/get/update/send/delete) and `triageInbox`                                                   |
+| `script`            | on      | Apps Script projects                                                                                            |
+| `docs-advanced`     | on      | Headers, footers, footnotes, named ranges, smart chips, section breaks and styles, document style, cloneTable   |
+| `comments`          | on      | Docs and Sheets comments and cell notes                                                                         |
+| `sheets-advanced`   | on      | Charts, conditional formatting, protected ranges, row groups, dropdown validation, copyFormatting, cell borders |
+| `drive-permissions` | on      | `setFilePermission`                                                                                             |
+| `drive-convert`     | on      | `convertFile`, `uploadAndConvert`, `listSupportedConversions`, `exportPresentation`, `exportDrawing`            |
+| `gmail-extras`      | on      | Drafts (create/list/get/update/send/delete) and `triageInbox`                                                   |
 
-Examples: `MCP_TOOL_GROUPS=default,script,comments` adds two groups to the defaults; `MCP_TOOL_GROUPS=all` restores the previous full tool set.
+Examples: `MCP_TOOL_GROUPS=docs,drive,sheets` registers only those three groups (plus `authStatus`); `MCP_TOOL_GROUPS=all` is the same as leaving it unset.
 
 A token budget test (`src/tools/tokenBudget.test.ts`) estimates `tools/list` size as characters / 4 per tool and fails when any group grows more than 5% over `tokenBudget.json`. After an intentional change, run `npm run budget:update` and commit the regenerated file.
 

@@ -28,8 +28,8 @@ describe('tools/list token budget', () => {
     expect(actual.all, 'all total').toBeLessThanOrEqual(limit(budget.all));
   });
 
-  it('keeps the default set smaller than the full set', async () => {
+  it('keeps the default set equal to the full set', async () => {
     const actual = await measureTokenBudget();
-    expect(actual.default).toBeLessThan(actual.all);
+    expect(actual.default).toBe(actual.all);
   });
 });

@@ -24,11 +24,12 @@ function captureTools(groups: Parameters<typeof registerAllTools>[1]) {
 }
 
 describe('parseEnabledToolGroups', () => {
-  it('defaults to the default-on groups only', () => {
-    expect(parseEnabledToolGroups(undefined)).toEqual([...DEFAULT_TOOL_GROUPS]);
-    expect(parseEnabledToolGroups('  ')).toEqual([...DEFAULT_TOOL_GROUPS]);
-    expect(DEFAULT_TOOL_GROUPS).not.toContain('script');
-    for (const group of OPT_IN_SUBGROUP_NAMES) expect(DEFAULT_TOOL_GROUPS).not.toContain(group);
+  it('defaults to every group', () => {
+    expect(parseEnabledToolGroups(undefined)).toEqual([...TOOL_GROUPS]);
+    expect(parseEnabledToolGroups('  ')).toEqual([...TOOL_GROUPS]);
+    expect([...DEFAULT_TOOL_GROUPS]).toEqual([...TOOL_GROUPS]);
+    expect(DEFAULT_TOOL_GROUPS).toContain('script');
+    for (const group of OPT_IN_SUBGROUP_NAMES) expect(DEFAULT_TOOL_GROUPS).toContain(group);
   });
 
   it('normalizes comma-separated tool group names in default order', () => {
@@ -42,15 +43,8 @@ describe('parseEnabledToolGroups', () => {
 
   it('selects opt-in groups explicitly and supports the default keyword', () => {
     expect(parseEnabledToolGroups('script')).toEqual(['script']);
-    expect(parseEnabledToolGroups('default,script')).toEqual([
-      'docs',
-      'drive',
-      'sheets',
-      'utils',
-      'gmail',
-      'calendar',
-      'script',
-    ]);
+    expect(parseEnabledToolGroups('default,script')).toEqual([...TOOL_GROUPS]);
+    expect(parseEnabledToolGroups('docs,drive,script')).toEqual(['docs', 'drive', 'script']);
   });
 
   it('warns on stderr and ignores unknown groups', () => {
@@ -71,7 +65,7 @@ describe('default tool set', () => {
   const defaults = captureTools([...DEFAULT_TOOL_GROUPS]);
   const everything = captureTools([...TOOL_GROUPS]);
 
-  it('keeps everyday tools and drops opt-in families', () => {
+  it('registers every tool by default, including former opt-in families', () => {
     for (const name of [
       'readDocument',
       'applyTextStyle',
@@ -81,10 +75,6 @@ describe('default tool set', () => {
       'listMessages',
       'searchDriveFiles',
       'authStatus',
-    ]) {
-      expect(defaults).toContain(name);
-    }
-    for (const name of [
       'createAppsScriptProject',
       'setFilePermission',
       'triageInbox',
@@ -93,16 +83,25 @@ describe('default tool set', () => {
       'createHeader',
       'convertFile',
     ]) {
-      expect(defaults).not.toContain(name);
+      expect(defaults).toContain(name);
     }
+    expect([...defaults].sort()).toEqual([...everything].sort());
   });
 
-  it('all restores every tool and every opt-in tool belongs to a real tool', () => {
+  it('trimming with explicit groups drops the others', () => {
+    const trimmed = captureTools(parseEnabledToolGroups('docs,drive'));
+    expect(trimmed).toContain('readDocument');
+    expect(trimmed).not.toContain('createAppsScriptProject');
+    expect(trimmed).not.toContain('addComment');
+    expect(trimmed.length).toBeLessThan(defaults.length);
+  });
+
+  it('all registers every tool and every opt-in tool belongs to a real tool', () => {
     for (const group of OPT_IN_SUBGROUP_NAMES) {
       for (const name of OPT_IN_SUBGROUPS[group])
         expect(everything, `${group}:${name}`).toContain(name);
     }
-    expect(everything.length).toBeGreaterThan(defaults.length);
+    expect(everything.length).toBe(defaults.length);
   });
 
   it('registers an opt-in group on its own, without its parent group', () => {
