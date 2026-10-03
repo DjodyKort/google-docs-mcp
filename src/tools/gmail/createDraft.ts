@@ -59,6 +59,7 @@ export function register(server: FastMCP) {
           2
         );
       } catch (error: any) {
+        if (error instanceof UserError) throw error;
         log.error(`Error creating draft: ${error.message || error}`);
         if (error.code === 401)
           throw new UserError(

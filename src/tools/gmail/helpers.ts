@@ -1,4 +1,5 @@
 import { gmail_v1 } from 'googleapis';
+import { UserError } from 'fastmcp';
 
 export function findHeaderValue(
   headers: gmail_v1.Schema$MessagePartHeader[] | undefined,
@@ -8,10 +9,46 @@ export function findHeaderValue(
   return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? null;
 }
 
+const UNSAFE_HEADER_CHARS = /[\x00-\x08\x0A-\x1F\x7F\u0085\u2028\u2029]/;
+
+/**
+ * Rejects CR, LF and other control characters (tab is allowed) that would let a
+ * caller-supplied value terminate a header line and inject further headers.
+ */
+export function assertSafeHeaderValue(name: string, value: string | null | undefined): void {
+  if (value == null) return;
+  if (UNSAFE_HEADER_CHARS.test(value)) {
+    throw new UserError(`Invalid ${name}: control characters such as line breaks are not allowed.`);
+  }
+}
+
+export function assertSafeHeaderValues(name: string, values: string[] | undefined): void {
+  if (!values) return;
+  for (const v of values) assertSafeHeaderValue(name, v);
+}
+
 export function encodeHeader(value: string): string {
-  // RFC 2047 encoded-word for any non-ASCII content in headers.
+  assertSafeHeaderValue('header value', value);
   if (/^[\x00-\x7F]*$/.test(value)) return value;
-  return `=?UTF-8?B?${Buffer.from(value, 'utf-8').toString('base64')}?=`;
+  // RFC 2047 limits an encoded-word to 75 chars, so split on code point
+  // boundaries (never mid UTF-8 sequence) and fold with CRLF + space.
+  const words: string[] = [];
+  let chunk = '';
+  let chunkBytes = 0;
+  for (const ch of value) {
+    const bytes = Buffer.byteLength(ch, 'utf-8');
+    if (chunkBytes + bytes > 45) {
+      words.push(chunk);
+      chunk = '';
+      chunkBytes = 0;
+    }
+    chunk += ch;
+    chunkBytes += bytes;
+  }
+  if (chunk) words.push(chunk);
+  return words
+    .map((w) => `=?UTF-8?B?${Buffer.from(w, 'utf-8').toString('base64')}?=`)
+    .join('\r\n ');
 }
 
 export interface MimeMessageOptions {
@@ -25,6 +62,12 @@ export interface MimeMessageOptions {
 }
 
 export function buildMimeMessage(opts: MimeMessageOptions): string {
+  assertSafeHeaderValues('To', opts.to);
+  assertSafeHeaderValues('Cc', opts.cc);
+  assertSafeHeaderValues('Bcc', opts.bcc);
+  assertSafeHeaderValue('Subject', opts.subject);
+  assertSafeHeaderValue('In-Reply-To', opts.inReplyTo);
+  assertSafeHeaderValue('References', opts.references);
   const lines: string[] = [];
   lines.push(`To: ${opts.to.join(', ')}`);
   if (opts.cc && opts.cc.length > 0) lines.push(`Cc: ${opts.cc.join(', ')}`);
@@ -86,6 +129,10 @@ export async function prepareMimeRequest(
   args: DraftRequestArgs
 ): Promise<{ raw: string; threadId: string | undefined; toList: string[] }> {
   const toList = Array.isArray(args.to) ? args.to : [args.to];
+  assertSafeHeaderValues('To', toList);
+  assertSafeHeaderValues('Cc', args.cc);
+  assertSafeHeaderValues('Bcc', args.bcc);
+  assertSafeHeaderValue('Subject', args.subject);
   let threadId: string | undefined;
   let inReplyTo: string | null = null;
   let references: string | null = null;

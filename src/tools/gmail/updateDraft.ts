@@ -55,6 +55,7 @@ export function register(server: FastMCP) {
           2
         );
       } catch (error: any) {
+        if (error instanceof UserError) throw error;
         log.error(`Error updating draft: ${error.message || error}`);
         if (error.code === 404) throw new UserError(`Draft not found (ID: ${args.draftId}).`);
         if (error.code === 403)
