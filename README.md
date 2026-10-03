@@ -7,6 +7,7 @@ npx tsx setup-local-mcp.ts
 ```
 
 Auth flow:
+
 ```bash
 npm run auth
 ```
@@ -180,38 +181,38 @@ Tools across Google Docs, Sheets, and Drive:
 
 ### Google Sheets Tables
 
-| Tool               | Description                                    |
-| ------------------ | ---------------------------------------------- |
-| `createTable`      | Create a new named table with column types     |
-| `listTables`       | List all tables in a spreadsheet or sheet      |
-| `getTable`         | Get detailed table metadata by name or ID      |
-| `deleteTable`      | Delete a table (optionally clear data)         |
-| `updateTableRange` | Modify table dimensions (add/remove rows/cols) |
-| `appendTableRows`  | Append rows to a table (table-aware insertion) |
+| Tool                   | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `createTable`          | Create a new named table with column types     |
+| `listTables`           | List all tables in a spreadsheet or sheet      |
+| `getTable`             | Get detailed table metadata by name or ID      |
+| `deleteTable`          | Delete a table (optionally clear data)         |
+| `updateTableRange`     | Modify table dimensions (add/remove rows/cols) |
+| `appendSheetTableRows` | Append rows to a table (table-aware insertion) |
 
 ### Google Drive
 
-| Tool                         | Description                                 |
-| ---------------------------- | ------------------------------------------- |
-| `listDocuments`              | List documents, optionally filtered by date |
-| `searchDocuments`            | Search by name or content                   |
-| `getDocumentInfo`            | Get document metadata                       |
-| `createDocument`             | Create a new document                       |
-| `createDocumentFromTemplate` | Create from an existing template            |
-| `createFolder`               | Create a folder                             |
-| `listFolderContents`         | List folder contents                        |
-| `getFolderInfo`              | Get folder metadata                         |
-| `moveFile`                   | Move a file to another folder               |
-| `copyFile`                   | Duplicate a file                            |
-| `renameFile`                 | Rename a file                               |
-| `deleteFile`                 | Move to trash or permanently delete         |
-| `listDriveFiles`             | List any file type in Drive with filters    |
-| `searchDriveFiles`           | Search all Drive files by name or content   |
-| `downloadFile`               | Download a file's content                   |
+| Tool                         | Description                                                    |
+| ---------------------------- | -------------------------------------------------------------- |
+| `listDocuments`              | List documents, optionally filtered by date                    |
+| `searchDocuments`            | Search by name or content                                      |
+| `getDocumentInfo`            | Get document metadata                                          |
+| `createDocument`             | Create a new document                                          |
+| `createDocumentFromTemplate` | Create from an existing template                               |
+| `createFolder`               | Create a folder                                                |
+| `listFolderContents`         | List folder contents                                           |
+| `getFolderInfo`              | Get folder metadata                                            |
+| `moveFile`                   | Move a file to another folder                                  |
+| `copyFile`                   | Duplicate a file                                               |
+| `renameFile`                 | Rename a file                                                  |
+| `deleteFile`                 | Move to trash or permanently delete                            |
+| `listDriveFiles`             | List any file type in Drive with filters                       |
+| `searchDriveFiles`           | Search all Drive files by name or content                      |
+| `downloadFile`               | Download a file's content                                      |
 | `exportDocument`             | Export a Google Doc as pdf/docx/odt/rtf/txt/html/epub/markdown |
-| `exportSpreadsheet`          | Export a Google Sheet as xlsx/ods/pdf/csv/tsv/html |
-| `exportPresentation`         | Export a Google Slides as pptx/odp/pdf/txt  |
-| `exportDrawing`              | Export a Google Drawing as pdf/png/jpg/svg  |
+| `exportSpreadsheet`          | Export a Google Sheet as xlsx/ods/pdf/csv/tsv/html             |
+| `exportPresentation`         | Export a Google Slides as pptx/odp/pdf/txt                     |
+| `exportDrawing`              | Export a Google Drawing as pdf/png/jpg/svg                     |
 
 ### Gmail
 

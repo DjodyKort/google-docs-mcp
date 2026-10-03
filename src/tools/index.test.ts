@@ -54,6 +54,15 @@ describe('registerAllTools', () => {
   });
 });
 
+describe('tool registry', () => {
+  it('registers every tool name exactly once across all groups', () => {
+    const names = captureTools([...TOOL_GROUPS]);
+    const duplicates = names.filter((name, i) => names.indexOf(name) !== i);
+
+    expect(duplicates).toEqual([]);
+  });
+});
+
 describe('authStatus tool', () => {
   it('is registered regardless of the selected groups', () => {
     expect(captureTools(['docs'])).toContain('authStatus');

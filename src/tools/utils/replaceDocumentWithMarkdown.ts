@@ -4,8 +4,15 @@ import { z } from 'zod';
 import { getDocsClient } from '../../clients.js';
 import { DocumentIdParameter, MarkdownConversionError } from '../../types.js';
 import * as GDocsHelpers from '../../googleDocsApiHelpers.js';
-import { insertMarkdown, formatInsertResult } from '../../markdown-transformer/index.js';
+import type { docs_v1 } from 'googleapis';
+import { convertMarkdownToRequests } from '../../markdown-transformer/markdownToDocs.js';
 import { TAB_BODY_RANGE_FIELDS } from '../docs/tabFieldMasks.js';
+
+function isRevisionConflict(e: any): boolean {
+  const message = String(e?.message ?? '');
+  const status = e?.code ?? e?.response?.status;
+  return (status === 400 || status === 409) && /revision/i.test(message);
+}
 
 export function register(server: FastMCP) {
   server.addTool({
@@ -44,15 +51,22 @@ export function register(server: FastMCP) {
       );
 
       try {
-        // 1. Get document structure
         const doc = await docs.documents.get({
           documentId: args.documentId,
           includeTabsContent: !!args.tabId,
           suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
-          fields: args.tabId ? TAB_BODY_RANGE_FIELDS : 'body(content(startIndex,endIndex))',
+          fields: `revisionId,${
+            args.tabId ? TAB_BODY_RANGE_FIELDS : 'body(content(startIndex,endIndex))'
+          }`,
         });
 
-        // 2. Calculate replacement range
+        const revisionId = doc.data.revisionId;
+        if (!revisionId) {
+          throw new UserError(
+            'Could not read the document revision; refusing to replace content without a revision pin.'
+          );
+        }
+
         let startIndex = 1;
         let bodyContent: any;
 
@@ -75,10 +89,10 @@ export function register(server: FastMCP) {
           throw new UserError('No content found in document/tab');
         }
 
-        let endIndex = bodyContent[bodyContent.length - 1].endIndex! - 1;
+        const bodyEnd: number = bodyContent[bodyContent.length - 1].endIndex!;
+        const endIndex = bodyEnd - 1;
 
         if (args.preserveTitle) {
-          // Find first content element that's a heading or paragraph
           for (const element of bodyContent) {
             if (element.paragraph && element.endIndex) {
               startIndex = element.endIndex;
@@ -87,91 +101,77 @@ export function register(server: FastMCP) {
           }
         }
 
-        // 3. Delete existing content
-        if (endIndex > startIndex) {
-          const deleteRange: any = { startIndex, endIndex };
-          if (args.tabId) {
-            deleteRange.tabId = args.tabId;
-          }
-          log.info(`Deleting content from index ${startIndex} to ${endIndex}`);
-          await GDocsHelpers.executeBatchUpdate(docs, args.documentId, [
-            {
-              deleteContentRange: { range: deleteRange },
-            },
-          ]);
-          log.info(`Delete complete.`);
-        }
-
-        // 4. Clean the surviving trailing paragraph.
-        //    deleteContentRange always leaves one trailing paragraph that cannot
-        //    be deleted. If it has bullet list membership or text formatting from
-        //    the old content, all subsequently inserted text inherits those
-        //    properties, corrupting the new document. We strip both bullets and
-        //    text styles from the survivor before inserting.
-        {
-          // Re-read to get the survivor's endIndex (always a short document now)
-          const docAfterDelete = await docs.documents.get({
-            documentId: args.documentId,
-            includeTabsContent: !!args.tabId,
-            suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
-            fields: args.tabId ? TAB_BODY_RANGE_FIELDS : 'body(content(startIndex,endIndex))',
-          });
-
-          let survivorContent: any;
-          if (args.tabId) {
-            const tab = GDocsHelpers.findTabById(docAfterDelete.data, args.tabId);
-            survivorContent = tab?.documentTab?.body?.content;
-          } else {
-            survivorContent = docAfterDelete.data.body?.content;
-          }
-          const survivorEnd = survivorContent
-            ? survivorContent[survivorContent.length - 1].endIndex!
-            : startIndex + 1;
-
-          const survivorRange: any = { startIndex, endIndex: survivorEnd };
-          if (args.tabId) {
-            survivorRange.tabId = args.tabId;
-          }
-
-          const cleanupRequests: any[] = [
-            { deleteParagraphBullets: { range: survivorRange } },
-            {
-              updateTextStyle: {
-                range: survivorRange,
-                textStyle: {
-                  underline: false,
-                  bold: false,
-                  italic: false,
-                  strikethrough: false,
-                  foregroundColor: {},
-                  backgroundColor: {},
-                },
-                fields: 'underline,bold,italic,strikethrough,foregroundColor,backgroundColor',
-              },
-            },
-          ];
-
-          try {
-            await GDocsHelpers.executeBatchUpdate(docs, args.documentId, cleanupRequests);
-            log.info(
-              `Cleaned surviving paragraph (bullets + text style) at range ${startIndex}-${survivorEnd}`
-            );
-          } catch (e: any) {
-            log.info(`Survivor cleanup skipped: ${e.message}`);
-          }
-        }
-
-        // 5. Convert markdown and insert (indices calculated for empty document)
-        log.info(
-          `Inserting markdown starting at index ${startIndex} (after delete, document should be empty)`
-        );
-        const result = await insertMarkdown(docs, args.documentId, args.markdown, {
+        const startedAt = performance.now();
+        const insertRequests = convertMarkdownToRequests(
+          args.markdown,
           startIndex,
-          tabId: args.tabId,
-          firstHeadingAsTitle: args.firstHeadingAsTitle,
-        });
+          args.tabId,
+          args.firstHeadingAsTitle ? { firstHeadingAsTitle: true } : undefined
+        );
 
-        const debugSummary = formatInsertResult(result);
+        if (insertRequests.length === 0) {
+          throw new UserError(
+            'The markdown produced no content; refusing to clear the document. No changes were made.'
+          );
+        }
+
+        const withTab = (range: { startIndex: number; endIndex: number }) =>
+          args.tabId ? { ...range, tabId: args.tabId } : range;
+
+        const requests: docs_v1.Schema$Request[] = [];
+        const willDelete = endIndex > startIndex;
+        if (willDelete) {
+          requests.push({
+            deleteContentRange: { range: withTab({ startIndex, endIndex }) },
+          });
+        }
+
+        // deleteContentRange always leaves one undeletable trailing paragraph;
+        // strip its bullets and text styles so inserted text does not inherit them.
+        const survivorRange = withTab({
+          startIndex,
+          endIndex: willDelete ? startIndex + 1 : bodyEnd,
+        });
+        requests.push(
+          { deleteParagraphBullets: { range: survivorRange } },
+          {
+            updateTextStyle: {
+              range: survivorRange,
+              textStyle: {
+                underline: false,
+                bold: false,
+                italic: false,
+                strikethrough: false,
+                foregroundColor: {},
+                backgroundColor: {},
+              },
+              fields: 'underline,bold,italic,strikethrough,foregroundColor,backgroundColor',
+            },
+          },
+          ...insertRequests
+        );
+
+        log.info(
+          `Replacing range ${startIndex}-${endIndex} with ${insertRequests.length} requests in one batchUpdate pinned to revision ${revisionId}`
+        );
+        try {
+          await docs.documents.batchUpdate({
+            documentId: args.documentId,
+            requestBody: {
+              requests,
+              writeControl: { requiredRevisionId: revisionId },
+            },
+          });
+        } catch (e: any) {
+          if (isRevisionConflict(e)) {
+            throw new UserError(
+              'The document was modified by someone else while the replacement was being prepared (revision mismatch). No changes were made. Re-read the document and try again.'
+            );
+          }
+          throw e;
+        }
+
+        const debugSummary = `Replaced in a single atomic batchUpdate (${requests.length} requests) pinned to revision ${revisionId}, ${Math.round(performance.now() - startedAt)}ms.`;
         log.info(debugSummary);
         return `Successfully replaced document content with ${args.markdown.length} characters of markdown.\n\n${debugSummary}`;
       } catch (error: any) {

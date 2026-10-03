@@ -7,7 +7,7 @@ import { SpreadsheetCellValueSchema } from '../../types.js';
 
 export function register(server: FastMCP) {
   server.addTool({
-    name: 'appendTableRows',
+    name: 'appendSheetTableRows',
     description:
       'Appends rows to the end of a table using table-aware insertion. This method respects footers and automatically inserts rows before the footer if one exists.',
     parameters: z.strictObject({
