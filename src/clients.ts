@@ -3,6 +3,7 @@ import { google, docs_v1, drive_v3, sheets_v4, script_v1, gmail_v1, calendar_v3 
 import { UserError } from 'fastmcp';
 import { OAuth2Client } from 'google-auth-library';
 import { authorize } from './auth.js';
+import { AuthRequiredError } from './authMeta.js';
 import { logger } from './logger.js';
 import { requestClients } from './remoteWrapper.js';
 
@@ -49,6 +50,7 @@ export async function initializeGoogleClient() {
       googleScript = null;
       googleGmail = null;
       googleCalendar = null;
+      if (error instanceof AuthRequiredError) throw new UserError(error.message);
       throw new Error('Google client initialization failed. Cannot start server tools.');
     }
   }

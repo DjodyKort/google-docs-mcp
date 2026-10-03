@@ -4,11 +4,18 @@ import { OAuth2Client } from 'google-auth-library';
 import { JWT } from 'google-auth-library';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 import * as http from 'http';
+import { UserError } from 'fastmcp';
 import { fileURLToPath } from 'url';
 import * as crypto from 'crypto';
 import { logger } from './logger.js';
+import {
+  AuthRequiredError,
+  getConfigDir,
+  getTokenPath,
+  needsReauthMessage,
+  updateAuthMeta,
+} from './authMeta.js';
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -20,30 +27,6 @@ const projectRootDir = path.resolve(__dirname, '..');
 
 /** Credentials file path (legacy dev workflow fallback). */
 const CREDENTIALS_PATH = path.join(projectRootDir, 'credentials.json');
-
-/**
- * Token storage directory following XDG Base Directory spec.
- * Uses $XDG_CONFIG_HOME if set, otherwise ~/.config.
- *
- * When GOOGLE_MCP_PROFILE is set, tokens are stored in a subdirectory
- * per profile, allowing multiple Google accounts (one per project).
- */
-function getConfigDir(): string {
-  const xdg = process.env.XDG_CONFIG_HOME;
-  const base = xdg || path.join(os.homedir(), '.config');
-  const baseDir = path.join(base, 'google-docs-mcp');
-  const profile = process.env.GOOGLE_MCP_PROFILE;
-  if (profile && !/^[\w-]+$/.test(profile)) {
-    throw new Error(
-      'GOOGLE_MCP_PROFILE must contain only alphanumeric characters, hyphens, or underscores.'
-    );
-  }
-  return profile ? path.join(baseDir, profile) : baseDir;
-}
-
-function getTokenPath(): string {
-  return path.join(getConfigDir(), 'token.json');
-}
 
 // ---------------------------------------------------------------------------
 // Scopes
@@ -245,7 +228,7 @@ async function readSavedTokenClientId(): Promise<string | null> {
  * Throws a clear actionable error when nothing matches the saved token,
  * rather than silently dropping the token and blocking on an interactive flow.
  */
-async function loadClientSecrets(): Promise<CredentialSource> {
+export async function loadClientSecrets(): Promise<CredentialSource> {
   const envSource = readEnvCredentials();
   let fileSource: CredentialSource | null = null;
   try {
@@ -342,18 +325,83 @@ async function authorizeWithServiceAccount(): Promise<JWT> {
 // Token persistence (XDG path)
 // ---------------------------------------------------------------------------
 
-async function loadSavedCredentialsIfExist(): Promise<OAuth2Client | null> {
+function isInvalidGrant(err: any): boolean {
+  return err?.response?.data?.error === 'invalid_grant' || err?.message === 'invalid_grant';
+}
+
+async function readRefreshTokenFromDisk(): Promise<string | null> {
   try {
-    const tokenPath = getTokenPath();
-    const content = await fs.readFile(tokenPath, 'utf8');
-    const credentials = sanitizeStoredTokenCredentials(JSON.parse(content));
-    const { client_secret, client_id } = await loadClientSecrets();
-    const client = new google.auth.OAuth2(client_id, client_secret);
-    client.setCredentials(credentials);
-    return client;
+    const parsed = sanitizeStoredTokenCredentials(
+      JSON.parse(await fs.readFile(getTokenPath(), 'utf8'))
+    );
+    return parsed.refresh_token ?? null;
   } catch {
     return null;
   }
+}
+
+/**
+ * The OAuth2Client is cached for the process lifetime, so a re-auth done in another
+ * process would never reach it. On invalid_grant, re-read token.json once and retry
+ * with the refresh token found there, if it differs from the one that just failed.
+ */
+export function installInvalidGrantRecovery(client: OAuth2Client): void {
+  const target = client as any;
+  const original = target.refreshTokenNoCache.bind(client);
+  const succeed = async (result: unknown) => {
+    await updateAuthMeta({ lastSuccessAt: new Date().toISOString() });
+    return result;
+  };
+  target.refreshTokenNoCache = async (refreshToken?: string | null) => {
+    let failure: any;
+    try {
+      return await succeed(await original(refreshToken));
+    } catch (err: any) {
+      if (!isInvalidGrant(err)) throw err;
+      failure = err;
+    }
+    const fromDisk = await readRefreshTokenFromDisk();
+    if (fromDisk && fromDisk !== refreshToken) {
+      logger.info('Refresh token rejected; token.json changed on disk, retrying once.');
+      client.setCredentials({
+        refresh_token: fromDisk,
+        access_token: null,
+        expiry_date: null,
+      });
+      try {
+        return await succeed(await original(fromDisk));
+      } catch (err: any) {
+        if (!isInvalidGrant(err)) throw err;
+        failure = err;
+      }
+    }
+    const description = failure?.response?.data?.error_description;
+    await updateAuthMeta({
+      lastFailureAt: new Date().toISOString(),
+      lastFailureState: 'needs_reauth',
+      lastFailureReason: 'invalid_grant',
+    });
+    throw new UserError(
+      needsReauthMessage(
+        `invalid_grant${typeof description === 'string' ? `: ${description.slice(0, 200)}` : ''}`
+      )
+    );
+  };
+}
+
+async function loadSavedCredentialsIfExist(): Promise<OAuth2Client | null> {
+  let credentials: OAuth2Client['credentials'];
+  try {
+    const content = await fs.readFile(getTokenPath(), 'utf8');
+    credentials = sanitizeStoredTokenCredentials(JSON.parse(content));
+  } catch {
+    return null;
+  }
+  const { client_secret, client_id } = await loadClientSecrets();
+  const client = new google.auth.OAuth2(client_id, client_secret);
+  client.setCredentials(credentials);
+  installInvalidGrantRecovery(client);
+  return client;
 }
 
 async function saveCredentials(client: OAuth2Client): Promise<void> {
@@ -462,7 +510,7 @@ async function authenticate(): Promise<OAuth2Client> {
  * Resolution order:
  *   1. SERVICE_ACCOUNT_PATH env var -> service account JWT
  *   2. Saved token in ~/.config/google-docs-mcp/token.json -> OAuth2Client
- *   3. Interactive browser OAuth flow -> OAuth2Client (saves token for next time)
+ *   3. Otherwise throws AuthRequiredError; the interactive flow only runs via `auth`
  */
 export async function authorize(): Promise<OAuth2Client | JWT> {
   if (process.env.SERVICE_ACCOUNT_PATH) {
@@ -476,8 +524,14 @@ export async function authorize(): Promise<OAuth2Client | JWT> {
     logger.info('Using saved credentials.');
     return client;
   }
-  logger.info('No saved token found. Starting interactive authentication flow...');
-  return authenticate();
+  // An interactive flow inside a tool call blocks on a local callback server for
+  // the whole auth timeout and never rejects, which hangs the MCP host.
+  await updateAuthMeta({
+    lastFailureAt: new Date().toISOString(),
+    lastFailureState: 'needs_reauth',
+    lastFailureReason: 'no_token_file',
+  });
+  throw new AuthRequiredError('no saved token');
 }
 
 /**
