@@ -1435,7 +1435,8 @@ export async function uploadImageToDrive(
   drive: any, // drive_v3.Drive type
   localFilePath: string,
   parentFolderId?: string,
-  skipPublicSharing: boolean = true
+  skipPublicSharing: boolean = true,
+  publicShare?: PublicShareHandle
 ): Promise<string> {
   const fs = await import('fs');
   const path = await import('path');
@@ -1494,14 +1495,19 @@ export async function uploadImageToDrive(
     return fileId;
   }
 
-  await drive.permissions.create({
+  const permission = await drive.permissions.create({
     fileId: fileId,
     requestBody: {
       role: 'reader',
       type: 'anyone',
     },
+    fields: 'id',
     supportsAllDrives: true,
   });
+  if (publicShare) {
+    publicShare.fileId = fileId;
+    publicShare.permissionId = permission?.data?.id ?? undefined;
+  }
 
   const fileInfo = await drive.files.get({
     fileId: fileId,
@@ -1515,6 +1521,30 @@ export async function uploadImageToDrive(
   }
 
   return webContentLink;
+}
+
+export interface PublicShareHandle {
+  fileId?: string;
+  permissionId?: string;
+}
+
+/** Best-effort removal of the temporary anyone/reader permission; never throws. */
+export async function revokePublicShare(
+  drive: any, // drive_v3.Drive type
+  handle: PublicShareHandle
+): Promise<void> {
+  if (!handle.fileId || !handle.permissionId) return;
+  try {
+    await drive.permissions.delete({
+      fileId: handle.fileId,
+      permissionId: handle.permissionId,
+      supportsAllDrives: true,
+    });
+  } catch (err: any) {
+    logger.warn(
+      `Failed to revoke temporary public permission ${handle.permissionId} on Drive file ${handle.fileId}: ${err?.message || err}`
+    );
+  }
 }
 
 /**

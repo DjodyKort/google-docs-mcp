@@ -103,59 +103,67 @@ export function register(server: FastMCP) {
 
         // --- Standard path: public URL insertion via Docs API ---
         let resolvedUrl: string;
+        const publicShare: GDocsHelpers.PublicShareHandle = {};
+        let shareDrive: any;
 
-        if (args.localImagePath) {
-          const drive = await getDriveClient();
-          log.info(
-            `Uploading local image ${args.localImagePath} and inserting at index ${args.index} in doc ${args.documentId}${args.tabId ? ` (tab: ${args.tabId})` : ''}`
-          );
+        try {
+          if (args.localImagePath) {
+            const drive = await getDriveClient();
+            shareDrive = drive;
+            log.info(
+              `Uploading local image ${args.localImagePath} and inserting at index ${args.index} in doc ${args.documentId}${args.tabId ? ` (tab: ${args.tabId})` : ''}`
+            );
 
-          let parentFolderId: string | undefined;
-          try {
-            const docInfo = await drive.files.get({
-              fileId: args.documentId,
-              fields: 'parents',
-              supportsAllDrives: true,
-            });
-            if (docInfo.data.parents && docInfo.data.parents.length > 0) {
-              parentFolderId = docInfo.data.parents[0];
+            let parentFolderId: string | undefined;
+            try {
+              const docInfo = await drive.files.get({
+                fileId: args.documentId,
+                fields: 'parents',
+                supportsAllDrives: true,
+              });
+              if (docInfo.data.parents && docInfo.data.parents.length > 0) {
+                parentFolderId = docInfo.data.parents[0];
+              }
+            } catch (folderError) {
+              log.warn(
+                `Could not determine document's parent folder, using Drive root: ${folderError}`
+              );
             }
-          } catch (folderError) {
-            log.warn(
-              `Could not determine document's parent folder, using Drive root: ${folderError}`
+
+            resolvedUrl = await GDocsHelpers.uploadImageToDrive(
+              drive,
+              args.localImagePath,
+              parentFolderId,
+              false, // explicit: needs public URL for Docs API insertion
+              publicShare
+            );
+            log.info(`Image uploaded successfully, URL: ${resolvedUrl}`);
+          } else {
+            resolvedUrl = args.imageUrl!;
+            log.info(
+              `Inserting image from URL ${resolvedUrl} at index ${args.index} in doc ${args.documentId}${args.tabId ? ` (tab: ${args.tabId})` : ''}`
             );
           }
 
-          resolvedUrl = await GDocsHelpers.uploadImageToDrive(
-            drive,
-            args.localImagePath,
-            parentFolderId,
-            false // explicit: needs public URL for Docs API insertion
+          await GDocsHelpers.insertInlineImage(
+            docs,
+            args.documentId,
+            resolvedUrl,
+            args.index,
+            args.width,
+            args.height,
+            args.tabId
           );
-          log.info(`Image uploaded successfully, URL: ${resolvedUrl}`);
-        } else {
-          resolvedUrl = args.imageUrl!;
-          log.info(
-            `Inserting image from URL ${resolvedUrl} at index ${args.index} in doc ${args.documentId}${args.tabId ? ` (tab: ${args.tabId})` : ''}`
-          );
+
+          let sizeInfo = '';
+          if (args.width && args.height) {
+            sizeInfo = ` with size ${args.width}x${args.height}pt`;
+          }
+
+          return `Successfully inserted image at index ${args.index}${sizeInfo}${args.tabId ? ` in tab ${args.tabId}` : ''}.`;
+        } finally {
+          if (shareDrive) await GDocsHelpers.revokePublicShare(shareDrive, publicShare);
         }
-
-        await GDocsHelpers.insertInlineImage(
-          docs,
-          args.documentId,
-          resolvedUrl,
-          args.index,
-          args.width,
-          args.height,
-          args.tabId
-        );
-
-        let sizeInfo = '';
-        if (args.width && args.height) {
-          sizeInfo = ` with size ${args.width}x${args.height}pt`;
-        }
-
-        return `Successfully inserted image at index ${args.index}${sizeInfo}${args.tabId ? ` in tab ${args.tabId}` : ''}.`;
       } catch (error: any) {
         log.error(`Error inserting image in doc ${args.documentId}: ${error.message || error}`);
         if (error instanceof UserError) throw error;
