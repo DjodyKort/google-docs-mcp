@@ -7,6 +7,7 @@
 // Usage:
 //   @a-bonus/google-docs-mcp          Start the MCP server (default)
 //   @a-bonus/google-docs-mcp auth     Run the interactive OAuth flow
+//   @a-bonus/google-docs-mcp auth --status [--json] [--force]   Print token health
 //
 // Remote mode (env vars):
 //   MCP_TRANSPORT=httpStream           Use Streamable HTTP instead of stdio
@@ -31,6 +32,16 @@ import { enableUpstreamOfflineAccess } from './upstreamAuth.js';
 import { logger } from './logger.js';
 
 // --- Auth subcommand ---
+if (process.argv[2] === 'auth' && process.argv.includes('--status')) {
+  const { runAuthStatusCli } = await import('./authStatus.js');
+  try {
+    process.exit(await runAuthStatusCli(process.argv.slice(3)));
+  } catch (error: any) {
+    logger.error('Auth status failed:', error?.message || error);
+    process.exit(12);
+  }
+}
+
 if (process.argv[2] === 'auth') {
   const { runAuthFlow } = await import('./auth.js');
   try {

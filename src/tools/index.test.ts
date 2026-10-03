@@ -53,3 +53,10 @@ describe('registerAllTools', () => {
     expect(toolNames).not.toContain('sendEmail');
   });
 });
+
+describe('authStatus tool', () => {
+  it('is registered regardless of the selected groups', () => {
+    expect(captureTools(['docs'])).toContain('authStatus');
+    expect(captureTools([])).toContain('authStatus');
+  });
+});

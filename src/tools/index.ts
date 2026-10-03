@@ -7,6 +7,7 @@ import { registerUtilsTools } from './utils/index.js';
 import { registerGmailTools } from './gmail/index.js';
 import { registerCalendarTools } from './calendar/index.js';
 import { registerScriptTools } from './script/index.js';
+import { registerAuthTools } from './auth/index.js';
 
 export const TOOL_GROUPS = [
   'docs',
@@ -77,4 +78,5 @@ export function registerAllTools(
         break;
     }
   }
+  registerAuthTools(server);
 }
